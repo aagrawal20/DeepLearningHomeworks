@@ -74,7 +74,7 @@ def cross_validate(session, train_x_all, train_y_all, cross_entropy,input_p, out
                 ce_vals.append(c)
 
             avg_val_ce = sum(ce_vals) / len(ce_vals)
-            print('Fold CROSS ENTROPY: ' + str(avg_val_ce))
+            print('{}. Fold CROSS ENTROPY: {}'.format(epoch, str(avg_val_ce)))
 
             # if val_min_loss > min(ce_vals):
                     # val_min_loss = min(ce_vals)

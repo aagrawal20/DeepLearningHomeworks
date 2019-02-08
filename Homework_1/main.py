@@ -77,12 +77,12 @@ with tf.Session() as session:
 #     # initialize variables
 #     session.run(tf.global_variables_initializer())
 #     # batch size
-#     batch_size = 64
+#     batch_size = 100
 #
-#     val_min_loss = 999
-#     no_loss_drop = 0
+#     # val_min_loss = 999
+#     # no_loss_drop = 0
 #     # training loop
-#     for epoch in range(50):
+#     for epoch in range(500):
 #         print('Epoch: ' + str(epoch))
 #         # list to store cross entropy
 #         ce_vals = []
@@ -90,10 +90,10 @@ with tf.Session() as session:
 #         # run gradient steps and report mean loss on train data
 #         for i in range(train_num_examples // batch_size):
 #             # get batches of data
-#             batch_xs = train_data[i * batch_size:(i + 1) * batch_size, :]
-#             batch_ys = train_labels[i * batch_size:(i + 1) * batch_size, :]
+#             batch_xs = data[i * batch_size:(i + 1) * batch_size, :]
+#             batch_ys = labels[i * batch_size:(i + 1) * batch_size, :]
 #             # train
-#             _, train_ce, conf_matrix = session.run([train_op_1, cross_entropy_1, confusion_matrix_op_1],
+#             _, train_ce, conf_matrix, accuracy = session.run([train_op_1, cross_entropy_1, confusion_matrix_op_1, accuracy_1],
 #                                                    {input: batch_xs, output: batch_ys})
 #             # append cross entropy loss and confusion matrix predictions
 #             ce_vals.append(train_ce)
@@ -101,64 +101,65 @@ with tf.Session() as session:
 #
 #         avg_train_ce = sum(ce_vals) / len(ce_vals)
 #         print('TRAIN CROSS ENTROPY: ' + str(avg_train_ce))
+#         print('TRAIN ACCURACY: ' + str(accuracy))
 #         print('TRAIN CONFUSION MATRIX:')
 #         print(str(sum(conf_mxs)))
 #
-#         # VALIDATION
-#         ce_vals = []
-#         # run gradient steps and report mean loss on train data
-#         for i in range(val_num_examples // batch_size):
-#             # get batches of data
-#             batch_xs = val_data[i * batch_size:(i + 1) * batch_size, :]
-#             batch_ys = val_labels[i * batch_size:(i + 1) * batch_size, :]
-#             # train
-#             _, val_ce = session.run([train_op_1, cross_entropy_1],
-#                                     {input: batch_xs, output: batch_ys})
-#             # append cross entropy loss and confusion matrix predictions
-#             ce_vals.append(val_ce)
+#         # # VALIDATION
+#         # ce_vals = []
+#         # # run gradient steps and report mean loss on train data
+#         # for i in range(val_num_examples // batch_size):
+#         #     # get batches of data
+#         #     batch_xs = val_data[i * batch_size:(i + 1) * batch_size, :]
+#         #     batch_ys = val_labels[i * batch_size:(i + 1) * batch_size, :]
+#         #     # train
+#         #     _, val_ce = session.run([train_op_1, cross_entropy_1],
+#         #                             {input: batch_xs, output: batch_ys})
+#         #     # append cross entropy loss and confusion matrix predictions
+#         #     ce_vals.append(val_ce)
+#         #
+#         # avg_val_ce = sum(ce_vals) / len(ce_vals)
+#         # print('VAL CROSS ENTROPY: ' + str(avg_val_ce))
+#         #
+#         # # Implement Early stopping
+#         #
+#         # # assign min loss if not then increment counter
+#         # if val_min_loss > min(ce_vals):
+#         #     val_min_loss = min(ce_vals)
+#         #     no_loss_drop = 0
+#         #     # saver to save model
+#         #     # saver_1.save(
+#         #     #     session,
+#         #     #     os.path.join(args.model_dir, "homework_1"),
+#         #     #     global_step=global_step_tensor_1)
+#         #
+#         # else:
+#         #     no_loss_drop += 1
+#         #
+#         # # if no loss drop recorded in the past 5 epochs then break
+#         # if no_loss_drop > 5:
+#         #     print("Early Stopping the model training as the loss has not dropped in the last %d runs", no_loss_drop)
+#         #     break
 #
-#         avg_val_ce = sum(ce_vals) / len(ce_vals)
-#         print('VAL CROSS ENTROPY: ' + str(avg_val_ce))
-#
-#         # Implement Early stopping
-#
-#         # assign min loss if not then increment counter
-#         if val_min_loss > min(ce_vals):
-#             val_min_loss = min(ce_vals)
-#             no_loss_drop = 0
-#             # saver to save model
-#             # saver_1.save(
-#             #     session,
-#             #     os.path.join(args.model_dir, "homework_1"),
-#             #     global_step=global_step_tensor_1)
-#
-#         else:
-#             no_loss_drop += 1
-#
-#         # if no loss drop recorded in the past 5 epochs then break
-#         if no_loss_drop > 5:
-#             print("Early Stopping the model training as the loss has not dropped in the last %d runs", no_loss_drop)
-#             break
-#
-#         # TESTING
-#         ce_vals = []
-#         conf_mxs = []
-#         for i in range(test_num_examples // batch_size):
-#             batch_xs = test_data[i * batch_size:(i + 1) * batch_size, :]
-#             batch_ys = test_labels[i * batch_size:(i + 1) * batch_size, :]
-#             test_ce, conf_matrix = session.run([cross_entropy_1, confusion_matrix_op_1],
-#                                                {input: batch_xs, output: batch_ys})
-#             ce_vals.append(test_ce)
-#             conf_mxs.append(conf_matrix)
-#
-#         avg_test_ce = sum(ce_vals) / len(ce_vals)
-#
-#         print('TEST CROSS ENTROPY: ' + str(avg_test_ce))
-#         print('TEST CONFUSION MATRIX:')
-#         print(str(sum(conf_mxs)))
+#         # # TESTING
+#         # ce_vals = []
+#         # conf_mxs = []
+#         # for i in range(test_num_examples // batch_size):
+#         #     batch_xs = test_data[i * batch_size:(i + 1) * batch_size, :]
+#         #     batch_ys = test_labels[i * batch_size:(i + 1) * batch_size, :]
+#         #     test_ce, conf_matrix = session.run([cross_entropy_1, confusion_matrix_op_1],
+#         #                                        {input: batch_xs, output: batch_ys})
+#         #     ce_vals.append(test_ce)
+#         #     conf_mxs.append(conf_matrix)
+#         #
+#         # avg_test_ce = sum(ce_vals) / len(ce_vals)
+#         #
+#         # print('TEST CROSS ENTROPY: ' + str(avg_test_ce))
+#         # print('TEST CONFUSION MATRIX:')
+#         # print(str(sum(conf_mxs)))
 #
 #     # path_prefix = saver_1.save(session, "/work/netthinker/ayush/homework_1_logs/homework_1")
-
+#     saver_1.save(session, "./homework_1")
 print("========================================================")
 print("FINISHED!")
 print("========================================================")
