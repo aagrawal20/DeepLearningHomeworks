@@ -10,8 +10,10 @@ def opt_metrics(labels, predictions, learning_rate, beta_1, beta_2):
         - beta 2: second momentum for Adam
     """
     # cross entropy loss
-    cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=y, logits=output))
+    cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, logits=predictions))
 
+    tf.summary.histogram("cross_entropy", cross_entropy)
+    
     # collect the regularization losses
     regularization_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
     # this is the weight of the regularization part of the final loss
@@ -20,13 +22,13 @@ def opt_metrics(labels, predictions, learning_rate, beta_1, beta_2):
     xentrop_w_reg = cross_entropy + REG_COEFF * sum(regularization_losses)
 
     # confusion matrix
-    confusion_matrix_op = tf.confusion_matrix(tf.argmax(y, axis=1), tf.argmax(output, axis=1), num_classes=10)
+    confusion_matrix_op = tf.confusion_matrix(tf.argmax(labels, axis=1), tf.argmax(predictions, axis=1), num_classes=10)
 
     # set up training and saving functionality
     global_step_tensor = tf.get_variable('global_step', trainable=False, shape=[], initializer=tf.zeros_initializer)
 
     # Adam
-    optimizer = tf.train.AdamOptimizer(learning_rate=lr, beta1=b_1, beta2=b_2)
+    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate, beta1=beta_1, beta2=beta_2)
 
     # optimizer
     train_op = optimizer.minimize(xentrop_w_reg, global_step=global_step_tensor)
@@ -36,52 +38,54 @@ def opt_metrics(labels, predictions, learning_rate, beta_1, beta_2):
 
     # accuracy
     accuracy = tf.reduce_mean(tf.cast(correct, 'float'))
+    
+    tf.summary.histogram("accuracy", accuracy)
 
     # saver
     saver = tf.train.Saver()
 
-    return confusion_matrix, xentrop_w_reg, train_op, global_step_tensor, saver, accuracy
+    return confusion_matrix_op, xentrop_w_reg, train_op, global_step_tensor, saver, accuracy
 
 
-def OneLayerNet(x, y, lr, b_1, b_2, l_size_1, l_size_2, reg_scale):
-     """
-     Args:
-        - x: models predicted output
-        - y: Actual labels for each example
-        - lr: rate for the Adam optimizer
-        - b_1: first momentum for Adam
-        - b_2: second momentum for Adam
-        - l_size_1: layer size for hidden layers
-        - l_size_2: another layer size for hidden layers
-        - reg: scale 0.0 for no regularization
-    """
-    # normalize data
-    x = x / 255.0
+# def OneLayerNet(x, y, lr, b_1, b_2, l_size_1, l_size_2, reg_scale):
+#         """
+#         Args:
+#         - x: models predicted output
+#         - y: Actual labels for each example
+#         - lr: rate for the Adam optimizer
+#         - b_1: first momentum for Adam
+#         - b_2: second momentum for Adam
+#         - l_size_1: layer size for hidden layers
+#         - l_size_2: another layer size for hidden layers
+#         - reg: scale 0.0 for no regularization
+#     """
+#     # normalize data
+#     x = x / 255.0
 
-    # model
-    with tf.name_scope('one_layer_net') as scope:
+#     # model
+#     with tf.name_scope('one_layer_net') as scope:
 
-        # hidden layer with L2
-        hidden = tf.layers.dense(x, l_size_1, activation=tf.nn.relu,
-                                 kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
-                                 bias_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
-                                 name='hidden_layer_1')
+#         # hidden layer with L2
+#         hidden = tf.layers.dense(x, l_size_1, activation=tf.nn.relu,
+#                                     kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
+#                                     bias_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
+#                                     name='hidden_layer_1')
 
-        # dropout layer
-        dropout = tf.layers.dropout(hidden, rate=0.2, name='dropout_1')
+#         # dropout layer
+#         dropout = tf.layers.dropout(hidden, rate=0.2, name='dropout_1')
 
-        # output layer with L2
-        output = tf.layers.dense(dropout, 10,
-                                 kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
-                                 bias_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
-                                 name='output_layer')
+#         # output layer with L2
+#         output = tf.layers.dense(dropout, 10,
+#                                     kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
+#                                     bias_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
+#                                     name='output_layer')
 
-    tf.identity(output, name='output')
+#     tf.identity(output, name='output')
 
-    # get the model metrics
-    confusion_matrix, cross_entropy, train_op, global_step_tensor, saver, accuracy = opt_metrics(y, output, lr, b_1, b_2)
-    
-    return confusion_matrix_op, cross_entropy, train_op, global_step_tensor, saver,accuracy
+#     # get the model metrics
+#     confusion_matrix, cross_entropy, train_op, global_step_tensor, saver, accuracy = opt_metrics(y, output, lr, b_1, b_2)
+
+#     return confusion_matrix_op, cross_entropy, train_op, global_step_tensor, saver,accuracy
 
 
 def TwoLayerNet(x, y, lr, b_1, b_2, l_size_1, l_size_2, reg_scale):
@@ -108,12 +112,16 @@ def TwoLayerNet(x, y, lr, b_1, b_2, l_size_1, l_size_2, reg_scale):
                                    kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
                                    bias_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
                                    name='hidden_layer_1')
+        
+        # dropout_1 = tf.layers.dropout(hidden_1, rate=0.1, name='dropout_1')
 
         # second hidden layer with L2
         hidden_2 = tf.layers.dense(hidden_1, l_size_1, activation=tf.nn.relu,
                                    kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
                                    bias_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
                                    name='hidden_layer_2')
+        
+        # dropout_2 = tf.layers.dropout(hidden_2, rate=0.1, name='dropout_2')
 
         # output layer with L2
         output = tf.layers.dense(hidden_2, 10,
@@ -126,7 +134,7 @@ def TwoLayerNet(x, y, lr, b_1, b_2, l_size_1, l_size_2, reg_scale):
      # get the model metrics
     confusion_matrix, cross_entropy, train_op, global_step_tensor, saver, accuracy = opt_metrics(y, output, lr, b_1, b_2)
 
-    return confusion_matrix_op, cross_entropy, train_op, global_step_tensor, saver, accuracy
+    return confusion_matrix, cross_entropy, train_op, global_step_tensor, saver, accuracy
 
 
 def ThreeLayerNet(x, y, lr, b_1, b_2, l_size_1, l_size_2, reg_scale):

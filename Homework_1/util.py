@@ -64,14 +64,18 @@ def cross_validate(session, train_x_all, train_y_all, cross_entropy,input_p, out
         batch_size = 100
         val_min_loss = 999
         no_loss_drop = 0
+        counter = 0
         for epoch in range(500):
             total_batch = train_x.shape[0] // batch_size
             ce_vals = []
             for i in range(total_batch):
+                counter +=1
+                merge = tf.summary.merge_all()
                 batch_x = train_x[i * batch_size:(i + 1) * batch_size]
                 batch_y = train_y[i * batch_size:(i + 1) * batch_size]
-                _, c = session.run([optimizer, metric], feed_dict={input_p: batch_x, output_p: batch_y})
+                summary, _, c = session.run([merge, optimizer, metric], feed_dict={input_p: batch_x, output_p: batch_y})
                 ce_vals.append(c)
+                train_writer.add_summary(summary, counter)
 
             avg_val_ce = sum(ce_vals) / len(ce_vals)
             print('{}. Fold CROSS ENTROPY: {}'.format(epoch, str(avg_val_ce)))
