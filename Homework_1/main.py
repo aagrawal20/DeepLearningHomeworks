@@ -50,9 +50,9 @@ output = tf.placeholder(tf.float32, [None, 10], name='label_placeholder')
 # get the model based on argument
 if args.numOfLayers is 2:
                     
-    confusion_matrix_op_1, cross_entropy_1, train_op_1, global_step_tensor_1, saver_1, accuracy_1 = TwoLayerNet(input, output, args.learning_rate, args.momentum_1, args.momentum_2, layer_size_1, layer_size_2, args.reg_scale)
+    confusion_matrix_op_1, cross_entropy_1, train_op_1, global_step_tensor_1, saver_1, accuracy_1, merge_1 = TwoLayerNet(input, output, args.learning_rate, args.momentum_1, args.momentum_2, layer_size_1, layer_size_2, args.reg_scale)
 else:
-    confusion_matrix_op_1, cross_entropy_1, train_op_1, global_step_tensor_1, saver_1, accuracy_1 = FourLayerNet(input, output, args.learning_rate, args.momentum_1, args.momentum_2, layer_size_1, layer_size_2, args.reg_scale)                 
+    confusion_matrix_op_1, cross_entropy_1, train_op_1, global_step_tensor_1, saver_1, accuracy_1, merge_1 = FourLayerNet(input, output, args.learning_rate, args.momentum_1, args.momentum_2, layer_size_1, layer_size_2, args.reg_scale)                 
     
 # session start
 # with tf.Session() as session:
@@ -100,14 +100,13 @@ with tf.Session() as session:
             
             # tensorboard stuff
             counter +=1
-            merge = tf.summary.merge_all()
             
             # get batches of data
             batch_xs = train_data[i * batch_size:(i + 1) * batch_size, :]
             batch_ys = train_labels[i * batch_size:(i + 1) * batch_size, :]
             
             # train
-            summary, _, train_ce, conf_matrix, accuracy = session.run([merge, train_op_1, cross_entropy_1, confusion_matrix_op_1, accuracy_1], {input: batch_xs, output: batch_ys})
+            summary, _, train_ce, conf_matrix, accuracy = session.run([merge_1, train_op_1, cross_entropy_1, confusion_matrix_op_1, accuracy_1], {input: batch_xs, output: batch_ys})
             
             # tensorboard 
             train_writer.add_summary(summary, counter)
@@ -139,7 +138,6 @@ with tf.Session() as session:
 
         # tensorboard stuff
         counter += 1
-        merge = tf.summary.merge_all()
         
         # get batches of data
         batch_xs = test_data[i * batch_size:(i + 1) * batch_size, :]
@@ -147,7 +145,7 @@ with tf.Session() as session:
         
         # train
         summary_, test_ce, conf_matrix_t, accuracy_t= session.run(
-            [merge, train_op_1, cross_entropy_1, confusion_matrix_op_1, accuracy_1],
+            [merge_1, train_op_1, cross_entropy_1, confusion_matrix_op_1, accuracy_1],
             {input: batch_xs, output: batch_ys})
 
         #tensorboard
