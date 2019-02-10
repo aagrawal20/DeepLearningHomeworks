@@ -87,10 +87,12 @@ with tf.Session() as session:
     print('Number of layers: {}'.format(args.numOfLayers))
     print('Learning Rate: {}'.format(args.learning_rate))
     print('Layer Size: {}'.format(layer_size_1))
+    print('Reg Scale: {}'.format(args.reg_scale))
 
     # val_min_loss = 999
     # no_loss_drop = 0
     # training loop
+    counter = 0
     for epoch in range(args.epochs):
         print('Epoch: ' + str(epoch))
         # list to store cross entropy
@@ -98,21 +100,34 @@ with tf.Session() as session:
         conf_mxs = []
         # run gradient steps and report mean loss on train data
         for i in range(train_num_examples // batch_size):
+            counter +=1
+            
+            merge = tf.summary.merge_all()
             # get batches of data
             batch_xs = train_data[i * batch_size:(i + 1) * batch_size, :]
             batch_ys = train_labels[i * batch_size:(i + 1) * batch_size, :]
             # train
-            _, train_ce, conf_matrix, accuracy = session.run([train_op_1, cross_entropy_1, confusion_matrix_op_1, accuracy_1],
-                                                   {input: batch_xs, output: batch_ys})
+            summary, _, train_ce, conf_matrix, accuracy = session.run([merge, train_op_1, cross_entropy_1, confusion_matrix_op_1, accuracy_1], {input: batch_xs, output: batch_ys})
+            
+            train_writer.add_summary(summary, counter)
             # append cross entropy loss and confusion matrix predictions
             ce_vals.append(train_ce)
             conf_mxs.append(conf_matrix)
+         
+        # classification error
+        classification_error = 1 - accuracy
 
+
+        # confidence interval
+        rhs = classification_error + 1.96 *( np.sqrt((classification_error * (accuracy))/train_labels.shape[0]))
+        lhs = classification_error - 1.96 *( np.sqrt((classification_error * (accuracy))/train_labels.shape[0])) 
+        
         avg_train_ce = sum(ce_vals) / len(ce_vals)
         print('TRAIN CROSS ENTROPY: ' + str(avg_train_ce))
         print('TRAIN ACCURACY: ' + str(accuracy))
         print('TRAIN CONFUSION MATRIX:')
         print(str(sum(conf_mxs)))
+        print('CONFIDENCE INTERVAL: {},{}'.format(lhs,rhs))
 
         # # VALIDATION
         # ce_vals = []
@@ -166,7 +181,16 @@ with tf.Session() as session:
         # print('TEST CROSS ENTROPY: ' + str(avg_test_ce))
         # print('TEST CONFUSION MATRIX:')
         # print(str(sum(conf_mxs)))
-    session.run([cross_entropy_1, accuracy_1], feed_dict={input: test_data, output: test_labels})
+    with session:
+        _, test_ce, conf_matrix_test, accuracy_test = session.run([cross_entropy_1, accuracy_1], feed_dict={input: test_data, output: test_labels})
+    
+    # classification error
+    classification_error_test = 1 - accuracy_test
+
+
+    # confidence interval
+    rhs = classification_error_test + 1.96 *( np.sqrt((classification_error_test * (accuracy_test))/test_labels.shape[0]))
+    lhs = classification_error_test - 1.96 *( np.sqrt((classification_error_test * (accuracy_test))/test_labels.shape[0]))
     path_prefix = saver_1.save(session, "/work/netthinker/ayush/homework_1_logs/homework_1")
     # saver_1.save(session, "./homework_1")
 print("========================================================")

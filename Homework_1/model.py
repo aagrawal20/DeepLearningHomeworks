@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 def opt_metrics(labels, predictions, learning_rate, beta_1, beta_2):
     """
@@ -38,6 +39,8 @@ def opt_metrics(labels, predictions, learning_rate, beta_1, beta_2):
 
     # accuracy
     accuracy = tf.reduce_mean(tf.cast(correct, 'float'))
+    
+    
     
     tf.summary.histogram("accuracy", accuracy)
 
@@ -113,7 +116,7 @@ def TwoLayerNet(x, y, lr, b_1, b_2, l_size_1, l_size_2, reg_scale):
                                    bias_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
                                    name='hidden_layer_1')
         
-        # dropout_1 = tf.layers.dropout(hidden_1, rate=0.1, name='dropout_1')
+        dropout_1 = tf.layers.dropout(hidden_1, rate=0.1, name='dropout_1')
 
         # second hidden layer with L2
         hidden_2 = tf.layers.dense(hidden_1, l_size_1, activation=tf.nn.relu,
@@ -121,7 +124,7 @@ def TwoLayerNet(x, y, lr, b_1, b_2, l_size_1, l_size_2, reg_scale):
                                    bias_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
                                    name='hidden_layer_2')
         
-        # dropout_2 = tf.layers.dropout(hidden_2, rate=0.1, name='dropout_2')
+        dropout_2 = tf.layers.dropout(hidden_2, rate=0.1, name='dropout_2')
 
         # output layer with L2
         output = tf.layers.dense(hidden_2, 10,
