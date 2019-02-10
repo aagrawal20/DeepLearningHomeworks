@@ -12,8 +12,6 @@ def opt_metrics(labels, predictions, learning_rate, beta_1, beta_2):
     """
     # cross entropy loss
     cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, logits=predictions))
-
-    tf.summary.histogram("cross_entropy", cross_entropy)
     
     # collect the regularization losses
     regularization_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
@@ -21,6 +19,7 @@ def opt_metrics(labels, predictions, learning_rate, beta_1, beta_2):
     REG_COEFF = 0.1
     # this value is what we'll pass to `minimize`
     xentrop_w_reg = cross_entropy + REG_COEFF * sum(regularization_losses)
+    
 
     # confusion matrix
     confusion_matrix_op = tf.confusion_matrix(tf.argmax(labels, axis=1), tf.argmax(predictions, axis=1), num_classes=10)
@@ -39,13 +38,15 @@ def opt_metrics(labels, predictions, learning_rate, beta_1, beta_2):
 
     # accuracy
     accuracy = tf.reduce_mean(tf.cast(correct, 'float'))
-    
-    tf.summary.histogram("accuracy", accuracy)
 
     # saver
     saver = tf.train.Saver()
 
     # tensorboard
+    tf.summary.scalar('accuracy', accuracy)
+    tf.summary.scalar('cross entropy', xentropy_w_reg)
+    tf.summary.histogram("cross_entropy_hist", xentrop_w_reg)
+    tf.summary.histogram("accuracy_hist", accuracy)
     merge = tf.summary.merge_all()
 
     return confusion_matrix_op, xentrop_w_reg, train_op, global_step_tensor, saver, accuracy, merge
