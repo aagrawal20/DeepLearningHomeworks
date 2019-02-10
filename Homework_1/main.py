@@ -16,7 +16,7 @@ parser.add_argument(
 parser.add_argument(
     '--model_dir',
     type=str,
-    default='/work/netthinker/ayush/homework_1_logs',
+    default='/work/netthinker/ayush/homework_1_logs/',
     help='directory where model graph and weights are saved')
 parser.add_argument('--batch_size', type=int, default=32, help='mini batch size for training')
 parser.add_argument('--epochs', type=int, default=100, help='number of epochs to run')
@@ -47,9 +47,12 @@ train_num_examples, test_num_examples = train_data.shape[0], test_data.shape[0]
 input = tf.placeholder(tf.float32, [None, 784], name='input_placeholder')
 output = tf.placeholder(tf.float32, [None, 10], name='label_placeholder')
 
+# layer size
+layer_size_1=256
+layer_size_2=256
+
 # get the model based on argument
-if args.numOfLayers is 2:
-                    
+if args.numOfLayers is 2:                   
     confusion_matrix_op_1, cross_entropy_1, train_op_1, global_step_tensor_1, saver_1, accuracy_1, merge_1 = TwoLayerNet(input, output, args.learning_rate, args.momentum_1, args.momentum_2, layer_size_1, layer_size_2, args.reg_scale)
 else:
     confusion_matrix_op_1, cross_entropy_1, train_op_1, global_step_tensor_1, saver_1, accuracy_1, merge_1 = FourLayerNet(input, output, args.learning_rate, args.momentum_1, args.momentum_2, layer_size_1, layer_size_2, args.reg_scale)                 
@@ -144,7 +147,7 @@ with tf.Session() as session:
         batch_ys = test_labels[i * batch_size:(i + 1) * batch_size, :]
         
         # train
-        summary_, test_ce, conf_matrix_t, accuracy_t= session.run(
+        summary, _, test_ce, conf_matrix_t, accuracy_t= session.run(
             [merge_1, train_op_1, cross_entropy_1, confusion_matrix_op_1, accuracy_1],
             {input: batch_xs, output: batch_ys})
 
@@ -173,7 +176,7 @@ with tf.Session() as session:
     print('TEST CONFIDENCE INTERVAL: {},{}'.format(lhs, rhs))
 
     # model files saver
-    path_prefix = saver_1.save(session, "/work/netthinker/ayush/homework_1_logs/homework_1")
+    path_prefix = saver_1.save(session, args.model_dir + "homework_1")
 
 print("========================================================")
 print("FINISHED!")
