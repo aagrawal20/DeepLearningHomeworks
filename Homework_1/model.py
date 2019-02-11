@@ -18,7 +18,7 @@ def opt_metrics(labels, predictions, learning_rate, beta_1, beta_2):
     # this is the weight of the regularization part of the final loss
     REG_COEFF = 0.1
     # this value is what we'll pass to `minimize`
-    xentrop_w_reg = cross_entropy + REG_COEFF * sum(regularization_losses)
+    xentropy_w_reg = cross_entropy + REG_COEFF * sum(regularization_losses)
     
 
     # confusion matrix
@@ -31,7 +31,7 @@ def opt_metrics(labels, predictions, learning_rate, beta_1, beta_2):
     optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate, beta1=beta_1, beta2=beta_2)
 
     # optimizer
-    train_op = optimizer.minimize(xentrop_w_reg, global_step=global_step_tensor)
+    train_op = optimizer.minimize(xentropy_w_reg, global_step=global_step_tensor)
 
     # correct predictions
     correct = tf.equal(tf.argmax(predictions, axis=1), tf.argmax(labels, axis=1))
@@ -45,11 +45,11 @@ def opt_metrics(labels, predictions, learning_rate, beta_1, beta_2):
     # tensorboard
     tf.summary.scalar('accuracy', accuracy)
     tf.summary.scalar('cross entropy', xentropy_w_reg)
-    tf.summary.histogram("cross_entropy_hist", xentrop_w_reg)
+    tf.summary.histogram("cross_entropy_hist", xentropy_w_reg)
     tf.summary.histogram("accuracy_hist", accuracy)
     merge = tf.summary.merge_all()
 
-    return confusion_matrix_op, xentrop_w_reg, train_op, global_step_tensor, saver, accuracy, merge
+    return confusion_matrix_op, xentropy_w_reg, train_op, global_step_tensor, saver, accuracy, merge
 
 
 # def OneLayerNet(x, y, lr, b_1, b_2, l_size_1, l_size_2, reg_scale):
@@ -120,7 +120,7 @@ def TwoLayerNet(x, y, lr, b_1, b_2, l_size_1, l_size_2, reg_scale):
         dropout_1 = tf.layers.dropout(hidden_1, rate=0.1, name='dropout_1')
 
         # second hidden layer with L2
-        hidden_2 = tf.layers.dense(hidden_1, l_size_1, activation=tf.nn.relu,
+        hidden_2 = tf.layers.dense(dropout_1, l_size_1, activation=tf.nn.relu,
                                    kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
                                    bias_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
                                    name='hidden_layer_2')
@@ -128,7 +128,7 @@ def TwoLayerNet(x, y, lr, b_1, b_2, l_size_1, l_size_2, reg_scale):
         dropout_2 = tf.layers.dropout(hidden_2, rate=0.1, name='dropout_2')
 
         # output layer with L2
-        output = tf.layers.dense(hidden_2, 10,
+        output = tf.layers.dense(dropout_2, 10,
                                  kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
                                  bias_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
                                  name='output_layer')
@@ -218,7 +218,7 @@ def FourLayerNet(x, y, lr, b_1, b_2, l_size_1, l_size_2, reg_scale):
                                    name='hidden_layer_1')
 
         # first dropout layer
-        dropout_1 = tf.layers.dropout(hidden_1, rate=0.1, name='dropout_1')
+        # dropout_1 = tf.layers.dropout(hidden_1, rate=0.1, name='dropout_1')
 
         # second hidden layer with L2
         hidden_2 = tf.layers.dense(hidden_1, l_size_1, activation=tf.nn.relu,
@@ -226,7 +226,7 @@ def FourLayerNet(x, y, lr, b_1, b_2, l_size_1, l_size_2, reg_scale):
                                    bias_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
                                    name='hidden_layer_2')
         # second dropout layer
-        dropout_2 = tf.layers.dropout(hidden_2, rate=0.1, name='dropout_2')
+        # dropout_2 = tf.layers.dropout(hidden_2, rate=0.1, name='dropout_2')
 
         # third hidden layer with L2
         hidden_3 = tf.layers.dense(hidden_2, l_size_2, activation=tf.nn.relu,
@@ -234,7 +234,7 @@ def FourLayerNet(x, y, lr, b_1, b_2, l_size_1, l_size_2, reg_scale):
                                    bias_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
                                    name='hidden_layer_3')
         # third dropout layer
-        dropout_3 = tf.layers.dropout(hidden_3, rate=0.1, name='dropout_3')
+        # dropout_3 = tf.layers.dropout(hidden_3, rate=0.1, name='dropout_3')
 
         # fourth hidden layer with L2
         hidden_4 = tf.layers.dense(hidden_3, l_size_2, activation=tf.nn.relu,
@@ -247,8 +247,8 @@ def FourLayerNet(x, y, lr, b_1, b_2, l_size_1, l_size_2, reg_scale):
 
         # output layer with L2
         output = tf.layers.dense(dropout_4, 10,
-                                 kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=0.01),
-                                 bias_regularizer=tf.contrib.layers.l2_regularizer(scale=0.01),
+                                 kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
+                                 bias_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
                                  name='output_layer')
 
     tf.identity(output, name='output')

@@ -16,8 +16,13 @@ parser.add_argument(
 parser.add_argument(
     '--model_dir',
     type=str,
-    default='/work/netthinker/ayush/homework_1_logs/',
+    default='/work/netthinker/ayush/new_hw_logs/',
     help='directory where model graph and weights are saved')
+parser.add_argument(
+    '--log_dir',
+    type=str,
+    default='/work/netthinker/ayush/new_logs/1/',
+    help='directory where tensorboard logs are saved')
 parser.add_argument('--batch_size', type=int, default=32, help='mini batch size for training')
 parser.add_argument('--epochs', type=int, default=100, help='number of epochs to run')
 parser.add_argument('--learning_rate', type=float, default=0.0001, help='Learning rate for Adam')
@@ -73,7 +78,7 @@ with tf.Session() as session:
     # initialize variables
     session.run(tf.global_variables_initializer())
     
-    train_writer = tf.summary.FileWriter( '/work/netthinker/ayush/logs/1/train ', session.graph)
+    train_writer = tf.summary.FileWriter( args.log_dir + 'train', session.graph)
     
     # batch size
     batch_size = args.batch_size
@@ -136,9 +141,13 @@ with tf.Session() as session:
         print('TRAIN CONFIDENCE INTERVAL: {},{}'.format(lhs,rhs))
 
     # counter for tensorboard
-    counter = 0   
+    counter = 0  
+    
+    # resetting variables
+    ce_vals = []
+    conf_mxs = []
     # writer for test
-    test_writer = tf.summary.FileWriter( '/work/netthinker/ayush/logs/1/test ', session.graph)
+    test_writer = tf.summary.FileWriter( args.log_dir + 'test', session.graph)
     for i in range(test_num_examples // batch_size):
 
         # tensorboard stuff
@@ -164,8 +173,8 @@ with tf.Session() as session:
     classification_error = 1 - accuracy_t
 
     # confidence interval
-    rhs = classification_error + 1.96 * (np.sqrt((classification_error * (accuracy)) / train_labels.shape[0]))
-    lhs = classification_error - 1.96 * (np.sqrt((classification_error * (accuracy)) / train_labels.shape[0]))
+    rhs = classification_error + 1.96 * (np.sqrt((classification_error * (accuracy_t)) / train_labels.shape[0]))
+    lhs = classification_error - 1.96 * (np.sqrt((classification_error * (accuracy_t)) / train_labels.shape[0]))
 
     # test crossentropy
     avg_test_ce = sum(ce_vals) / len(ce_vals)
