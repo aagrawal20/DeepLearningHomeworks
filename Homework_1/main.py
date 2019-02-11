@@ -1,6 +1,5 @@
-from util import one_hot_encode, split_data, generate_adam, cross_validate
+from util import one_hot_encode, split_data
 from model import TwoLayerNet, FourLayerNet
-from sklearn.cross_validation import train_test_split
 import tensorflow as tf
 import numpy as np
 import os
@@ -57,27 +56,19 @@ layer_size_1=256
 layer_size_2=256
 
 # get the model based on argument
-if args.numOfLayers is 2:                   
+if args.numOfLayers is 2:   
+    # two layer                
     confusion_matrix_op_1, cross_entropy_1, train_op_1, global_step_tensor_1, saver_1, accuracy_1, merge_1 = TwoLayerNet(input, output, args.learning_rate, args.momentum_1, args.momentum_2, layer_size_1, layer_size_2, args.reg_scale)
 else:
+    #four layer
     confusion_matrix_op_1, cross_entropy_1, train_op_1, global_step_tensor_1, saver_1, accuracy_1, merge_1 = FourLayerNet(input, output, args.learning_rate, args.momentum_1, args.momentum_2, layer_size_1, layer_size_2, args.reg_scale)                 
-    
-# session start
-# with tf.Session() as session:
-#     print("Momentum 1: ", b_1)
-#     print("Momentum 2: ", b_2)
-#     print("Learning Rate: ", learning_rate)
-#     print("Layer size 1: ", layer_size_1)
-#     print("Layer size 2: ", layer_size_2)
-#     result = cross_validate(session, train_data, train_labels, cross_entropy_1, input, output, init, train_op_1, accuracy)
-#     print ("Cross-validation result: %s" % result)    
-#     saver_1.save(session, "/work/netthinker/ayush/homework_1_logs/homework_1")
 
 #Training
 with tf.Session() as session:
     # initialize variables
     session.run(tf.global_variables_initializer())
     
+    # writer for tensorboard
     train_writer = tf.summary.FileWriter( args.log_dir + 'train', session.graph)
     
     # batch size
@@ -96,7 +87,8 @@ with tf.Session() as session:
 
     # training loop
     for epoch in range(args.epochs):
-
+        
+        # get current epoch
         print('Epoch: ' + str(epoch))
 
         # list to store cross entropy and confusion matrices
@@ -134,11 +126,15 @@ with tf.Session() as session:
         # train crossentropy
         avg_train_ce = sum(ce_vals) / len(ce_vals)
         
+        # return metrics
         print('TRAIN CROSS ENTROPY: ' + str(avg_train_ce))
         print('TRAIN ACCURACY: ' + str(accuracy))
         print('TRAIN CONFUSION MATRIX:')
         print(str(sum(conf_mxs)))
         print('TRAIN CONFIDENCE INTERVAL: {},{}'.format(lhs,rhs))
+
+
+    # Test
 
     # counter for tensorboard
     counter = 0  
@@ -146,8 +142,11 @@ with tf.Session() as session:
     # resetting variables
     ce_vals = []
     conf_mxs = []
+
     # writer for test
     test_writer = tf.summary.FileWriter( args.log_dir + 'test', session.graph)
+
+    # run test
     for i in range(test_num_examples // batch_size):
 
         # tensorboard stuff
@@ -158,9 +157,7 @@ with tf.Session() as session:
         batch_ys = test_labels[i * batch_size:(i + 1) * batch_size, :]
         
         # train
-        summary, _, test_ce, conf_matrix_t, accuracy_t= session.run(
-            [merge_1, train_op_1, cross_entropy_1, confusion_matrix_op_1, accuracy_1],
-            {input: batch_xs, output: batch_ys})
+        summary, _, test_ce, conf_matrix_t, accuracy_t= session.run([merge_1, train_op_1, cross_entropy_1, confusion_matrix_op_1, accuracy_1],{input: batch_xs, output: batch_ys})
 
         #tensorboard
         test_writer.add_summary(summary, counter)
@@ -179,7 +176,7 @@ with tf.Session() as session:
     # test crossentropy
     avg_test_ce = sum(ce_vals) / len(ce_vals)
 
-
+    # retunr metrics
     print('TEST CROSS ENTROPY: ' + str(avg_test_ce))
     print('TEST ACCURACY: ' + str(accuracy_t))
     print('TEST CONFUSION MATRIX:')

@@ -117,6 +117,7 @@ def TwoLayerNet(x, y, lr, b_1, b_2, l_size_1, l_size_2, reg_scale):
                                    bias_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
                                    name='hidden_layer_1')
 
+        # dropout 1
         dropout_1 = tf.layers.dropout(hidden_1, rate=0.1, name='dropout_1')
 
         # second hidden layer with L2
@@ -125,6 +126,7 @@ def TwoLayerNet(x, y, lr, b_1, b_2, l_size_1, l_size_2, reg_scale):
                                    bias_regularizer=tf.contrib.layers.l2_regularizer(scale=reg_scale),
                                    name='hidden_layer_2')
 
+        # dropout 2
         dropout_2 = tf.layers.dropout(hidden_2, rate=0.1, name='dropout_2')
 
         # output layer with L2
