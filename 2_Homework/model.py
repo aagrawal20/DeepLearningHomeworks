@@ -41,9 +41,9 @@ def TwoLayerSimpleConvNet(x, y, f_1, f_2, k_size, l_size_1, l_size_2, lr, b_1, b
 
     
     # get the model metrics
-    confusion_matrix, cross_entropy, train_op, global_step_tensor, saver, accuracy, merge= opt_metrics(y, output, lr, b_1, b_2)
+    confusion_matrix, cross_entropy, train_op, global_step_tensor, saver, accuracy, lhs, rhs= opt_metrics(y, output, lr, b_1, b_2)
 
-    return confusion_matrix, cross_entropy, train_op, global_step_tensor, saver, accuracy, merge
+    return confusion_matrix, cross_entropy, train_op, global_step_tensor, saver, accuracy, lhs, rhs
 
 
 def opt_metrics(labels, predictions, learning_rate, beta_1, beta_2):
@@ -78,14 +78,14 @@ def opt_metrics(labels, predictions, learning_rate, beta_1, beta_2):
     # accuracy
     accuracy = tf.reduce_mean(tf.cast(correct, 'float'))
 
+    # classifiation
+    classification_error = 1 - accuracy
+    
+    # confidence interval
+    rhs = classification_error + 1.96 *( np.sqrt((classification_error * (accuracy))/labels.shape[0]))
+    lhs = classification_error - 1.96 *( np.sqrt((classification_error * (accuracy))/labels.shape[0])) 
+
     # saver
     saver = tf.train.Saver()
-    
-     # tensorboard
-    tf.summary.scalar('accuracy', accuracy)
-    tf.summary.scalar('cross entropy', xentropy_w_reg)
-    tf.summary.histogram("cross_entropy_hist", xentropy_w_reg)
-    tf.summary.histogram("accuracy_hist", accuracy)
-    merge = tf.summary.merge_all()
 
-    return confusion_matrix_op, xentropy_w_reg, train_op, global_step_tensor, saver, accuracy, merge
+    return confusion_matrix_op, xentropy_w_reg, train_op, global_step_tensor, saver, accuracy, lhs, rhs

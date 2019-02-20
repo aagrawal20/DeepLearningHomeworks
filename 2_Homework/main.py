@@ -66,15 +66,12 @@ layer_size_1=256
 layer_size_2=256
                     
 # two layer  
-confusion_matrix_op_1, cross_entropy_1, train_op_1, global_step_tensor_1, saver_1, accuracy_1, merge_1 = TwoLayerSimpleConvNet(input, output, args.filter_1, args.filter_2, args.kernel_size, layer_size_1, layer_size_2, args.learning_rate, args.momentum_1, args.momentum_2)
+confusion_matrix_op_1, cross_entropy_1, train_op_1, global_step_tensor_1, saver_1, accuracy_1, lhs_1, rhs_1 = TwoLayerSimpleConvNet(input, output, args.filter_1, args.filter_2, args.kernel_size, layer_size_1, layer_size_2, args.learning_rate, args.momentum_1, args.momentum_2)
                     
 # Training
 with tf.Session() as session:
     # initialize variables
     session.run(tf.global_variables_initializer())
-    
-    # writer for tensorboard
-    train_writer = tf.summary.FileWriter( args.log_dir + 'train', session.graph)
     
     # batch size
     batch_size = args.batch_size
@@ -85,10 +82,7 @@ with tf.Session() as session:
     print('Filter 1: {}'.format(args.filter_1))
     print('Filter 2: {}'.format(args.filter_2))
     print('Kernel Size: {}'.format(args.kernel_size))
-    
-    # counter for tensorboard
-    counter = 0
-    
+
     # training loop
     for epoch in range(args.epochs):
         
@@ -102,95 +96,64 @@ with tf.Session() as session:
         # run gradient steps tnd report mean loss on train data
         for i in range(train_num_examples // batch_size):
             
-            # tensorboard stuff
-            counter += 1
-            
             # get batches of data
             batch_xs = train_data[i * batch_size:(i + 1) * batch_size, :]
             batch_ys = train_labels[i * batch_size:(i+1) * batch_size, :]
             
-            
             # train
-            summary, _, train_ce, conf_matrix, accuracy = session.run([merge_1, train_op_1, cross_entropy_1, 
-                                    confusion_matrix_op_1, accuracy_1], {input: batch_xs, output: batch_ys})
-            
-            # tensorboard
-            train_writer.add_summary(summary,counter)
+            _, train_ce, conf_matrix, accuracy, lhs, rhs = session.run([train_op_1, cross_entropy_1, 
+                                    confusion_matrix_op_1, accuracy_1, lhs_1, rhs_1], {input: batch_xs, output: batch_ys})
             
             # append cross entropy loss and confusion matrix predictions
             ce_vals.append(train_ce)
             conf_mxs.append(conf_matrix)
-            
-        # classifiation
-        classification_error = 1 - accuracy
-        
-        # confidence interval
-        rhs = classification_error + 1.96 *( np.sqrt((classification_error * (accuracy))/train_labels.shape[0]))
-        lhs = classification_error - 1.96 *( np.sqrt((classification_error * (accuracy))/train_labels.shape[0])) 
         
         # train crossentropy
         avg_train_ce = sum(ce_vals) / len(ce_vals)
         
         # return metrics
+        print('----------TRAIN STATS----------\n')
         print('TRAIN CROSS ENTROPY: ' + str(avg_train_ce))
         print('TRAIN ACCURACY: ' + str(accuracy))
         print('TRAIN CONFUSION MATRIX:')
         print(str(sum(conf_mxs)))
-        print('TRAIN CONFIDENCE INTERVAL: {},{}'.format(lhs,rhs))
+        print('TRAIN CONFIDENCE INTERVAL: {},{}\n'.format(lhs,rhs))
         
+        print('----------TEST STATS----------\n')
         
-    # test
-    
-    # counter for tensorboard
-    counter = 0
-    
-    # resetting variables
-    ce_vals = []
-    conf_mxs = []
-    
-    # writer for test
-    test_writer = tf.summary.FileWriter( args.log_dir + 'test', session.graph)
-    
-    # run test
-    for i in range(test_num_examples // batch_size):
-        # tensorboard stuff
-        counter += 1
+        # test
         
-        # get batches of data
-        batch_xs = test_data[i * batch_size:(i + 1) * batch_size, :]
-        batch_ys = test_labels[i * batch_size:(i + 1) * batch_size, :]
+        # resetting variables
+        ce_vals = []
+        conf_mxs = []
         
-        # train
-        summary, _, test_ce, conf_matrix_t, accuracy_t= session.run([merge_1, train_op_1, cross_entropy_1, confusion_matrix_op_1, accuracy_1],{input: batch_xs, output: batch_ys})
+        # run test
+        for i in range(test_num_examples // batch_size):
+            
+            # get batches of data
+            batch_xs = test_data[i * batch_size:(i + 1) * batch_size, :]
+            batch_ys = test_labels[i * batch_size:(i + 1) * batch_size, :]
+            
+            # train
+            _, test_ce, conf_matrix_t, accuracy_t, lhs_t, rhs_t= session.run([train_op_1, cross_entropy_1, confusion_matrix_op_1, accuracy_1, lhs_1, rhs_1],{input: batch_xs, output: batch_ys})
+            
+            # append cross entropy loss and confusion matrix predictions
+            ce_vals.append(test_ce)
+            conf_mxs.append(conf_matrix_t)
 
-        #tensorboard
-        test_writer.add_summary(summary, counter)
-        
-        # append cross entropy loss and confusion matrix predictions
-        ce_vals.append(test_ce)
-        conf_mxs.append(conf_matrix_t)
+        # test crossentropy
+        avg_test_ce = sum(ce_vals) / len(ce_vals)
 
-    # classification error
-    classification_error = 1 - accuracy_t
-
-    # confidence interval
-    rhs = classification_error + 1.96 * (np.sqrt((classification_error * (accuracy_t)) / train_labels.shape[0]))
-    lhs = classification_error - 1.96 * (np.sqrt((classification_error * (accuracy_t)) / train_labels.shape[0]))
-
-    # test crossentropy
-    avg_test_ce = sum(ce_vals) / len(ce_vals)
-
-    # retunr metrics
-    print('TEST CROSS ENTROPY: ' + str(avg_test_ce))
-    print('TEST ACCURACY: ' + str(accuracy_t))
-    print('TEST CONFUSION MATRIX:')
-    print(str(sum(conf_mxs)))
-    print('TEST CONFIDENCE INTERVAL: {},{}'.format(lhs, rhs))
+        # return metrics
+        print('TEST CROSS ENTROPY: ' + str(avg_test_ce))
+        print('TEST ACCURACY: ' + str(accuracy_t))
+        print('TEST CONFUSION MATRIX:')
+        print(str(sum(conf_mxs)))
+        print('TEST CONFIDENCE INTERVAL: {},{}'.format(lhs_t, rhs_t))
 
     # model files saver
     path_prefix = saver_1.save(session, args.model_dir + "homework_2")
 
-print("========================================================")
-print("FINISHED!")
-print("========================================================")
+print('----------FINISHED----------\n')
+
         
