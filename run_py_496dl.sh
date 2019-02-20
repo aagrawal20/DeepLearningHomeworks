@@ -5,7 +5,7 @@
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu
 #SBATCH --nodes=1
-#SBATCH --output=/work/netthinker/ayush/idkTest.out
+#SBATCH --output=/work/netthinker/ayush/2_homework.out
 
 module load anaconda
 source activate tensorflow-gpu-1.7.0-py36
