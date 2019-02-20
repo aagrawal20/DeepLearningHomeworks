@@ -141,7 +141,7 @@ with tf.Session() as session:
             ce_vals.append(test_ce)
             conf_mxs.append(conf_matrix_t)
 
-        # test crossentropy
+        # test cross entropy
         avg_test_ce = sum(ce_vals) / len(ce_vals)
 
         # return metrics

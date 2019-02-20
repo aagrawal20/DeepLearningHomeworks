@@ -1,9 +1,31 @@
 import tensorflow as tf
 import numpy as np
 
+
+def conv_block(inputs, filters):
+    with tf.name_scope('two_layer_simple_conv_net') as scope:
+        # first hidden conv layer
+        hidden_1 = tf.layers.Conv2D(filters=filters[0], kernel_size=5, padding='same', activation=tf.nn.relu, name='hidden_1')
+        
+        # first pooling layer
+        # pool_1 = tf.layers.max_pooling2d(hidden_1, 2, 2, padding='same')
+        
+        # second hidden conv layer
+        hidden_2 = tf.layers.Conv2D(filters=filters[1], kernel_size=5, padding='same', activation=tf.nn.relu, name='hidden_2')
+        
+        # second pooling layer
+        pool = tf.layers.MaxPooling2D(2, 2, padding='same')
+
+        output_tensor = pool(hidden_2(hidden_1(inputs)))
+        layer_list = [hidden_1, hidden_2, pool]
+        block_parameter_num = sum(map(lambda layer: layer.count_params(), layer_list))
+        print('Number of parameters in conv block with {} input: {}'.format(inputs.shape, block_parameter_num))
+        return output_tensor
+       
+
 def TwoLayerSimpleConvNet(x, y, f_1, f_2, k_size, l_size_1, l_size_2, lr, b_1, b_2):
     """
-     Args:
+    Args:
         - x: models predicted output
         - y: Actual labels for each example
         - lr: rate for the Adam optimizer
@@ -13,40 +35,24 @@ def TwoLayerSimpleConvNet(x, y, f_1, f_2, k_size, l_size_1, l_size_2, lr, b_1, b
         - f_2: filter for hidden layer 2
         - l_size_1: layer size for hidden layers
         - l_size_2: another layer size for hidden layers
-     """
-    
-    
-    
-    with tf.name_scope('two_layer_simple_conv_net') as scope:
-        # first hidden conv layer
-        hidden_1 = tf.layers.conv2d(inputs=x, filters=32, kernel_size=5, padding='same', activation=tf.nn.relu, name='hidden_1')
-        
-        # first pooling layer
-        pool_1 = tf.layers.max_pooling2d(hidden_1, 2, 2, padding='same')
-        
-        # second hidden conv layer
-        hidden_2 = tf.layers.conv2d(inputs=pool_1, filters=64, kernel_size=5, padding='same', activation=tf.nn.relu, name='hidden_2')
-        
-        # second pooling layer
-        pool_2 = tf.layers.max_pooling2d(hidden_2, 2, 2, padding='same')
-        
-        # flatten from 4D to 2D for dense layer
-        flat = tf.reshape(pool_2, [-1, 8*8*64])
-        
-        # dense layer output
-        output = tf.layers.dense(flat, 100, name='output_layer')
-        print('Output: {}'.format(output))
-        
-    tf.identity(output, name='output')
+    """
 
+    conv_x = conv_block(x, [32,64])
+             
+    # flatten from 4D to 2D for dense layer
+    flat = tf.reshape(conv_x, [-1, 16*16*64])
     
+    # dense layer output
+    output = tf.layers.dense(flat, 100, name='output_layer')
+
+    tf.identity(output, name='output')
     # get the model metrics
-    confusion_matrix, cross_entropy, train_op, global_step_tensor, saver, accuracy, lhs, rhs= opt_metrics(y, output, lr, b_1, b_2)
+    confusion_matrix, cross_entropy, train_op, global_step_tensor, saver, accuracy, lhs, rhs= opt_metrics(x, y, output, lr, b_1, b_2)
 
     return confusion_matrix, cross_entropy, train_op, global_step_tensor, saver, accuracy, lhs, rhs
 
 
-def opt_metrics(labels, predictions, learning_rate, beta_1, beta_2):
+def opt_metrics(x, labels, predictions, learning_rate, beta_1, beta_2):
     
     
     # cross entropy loss
@@ -82,8 +88,8 @@ def opt_metrics(labels, predictions, learning_rate, beta_1, beta_2):
     classification_error = 1 - accuracy
     
     # confidence interval
-    rhs = classification_error + 1.96 *( np.sqrt((classification_error * (accuracy))/labels.shape[0]))
-    lhs = classification_error - 1.96 *( np.sqrt((classification_error * (accuracy))/labels.shape[0])) 
+    rhs = classification_error + 1.96 *( tf.sqrt((classification_error * (accuracy))/tf.cast(tf.shape(labels, out_type=tf.int32), tf.float32)))
+    lhs = classification_error - 1.96 *( tf.sqrt((classification_error * (accuracy))/tf.cast(tf.shape(labels, out_type=tf.int32), tf.float32)))
 
     # saver
     saver = tf.train.Saver()
