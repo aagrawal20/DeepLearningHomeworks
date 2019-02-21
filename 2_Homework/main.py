@@ -3,7 +3,7 @@ import os
 import argparse
 import tensorflow as tf
 from util import one_hot_encode, split_data
-from model import TwoLayerSimpleConvNet
+from model import TwoLayerSimpleConvNet, model_summary
 
 # setup parser
 parser = argparse.ArgumentParser(description='Classify Fmnist images.')
@@ -82,6 +82,7 @@ with tf.Session() as session:
     print('Filter 1: {}'.format(args.filter_1))
     print('Filter 2: {}'.format(args.filter_2))
     print('Kernel Size: {}'.format(args.kernel_size))
+    model_summary()
 
     # training loop
     for epoch in range(args.epochs):
