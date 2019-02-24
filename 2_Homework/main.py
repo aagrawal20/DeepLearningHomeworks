@@ -3,7 +3,7 @@ import os
 import argparse
 import tensorflow as tf
 from util import one_hot_encode, split_data
-from model import TwoLayerSimpleConvNet, model_summary, FourLayerConvNet, autoencoder
+from model import  model_summary, autoencoder
 
 # setup parser
 parser = argparse.ArgumentParser(description='Classify Fmnist images.')

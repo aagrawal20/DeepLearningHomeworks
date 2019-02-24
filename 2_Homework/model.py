@@ -9,7 +9,7 @@ def upscale_block(x, scale=2):
 
 def downscale_block(x, scale=2):
     n, h, w, c = x.get_shape().as_list()
-    return tf.layers.conv2d(x, 1, 3, strides=scale, padding='same')
+    return tf.layers.conv2d(x, 3, 3, strides=scale, padding='same')
 # np.floor(c * 1.25)
 
 def autoencoder(x, lr, b_1, b_2):
@@ -25,14 +25,14 @@ def autoencoder(x, lr, b_1, b_2):
         print('Code: {}'.format(code))
         hidden_decoder = tf.layers.dense(code, 64, activation=tf.nn.relu)
         print('Hidden Decoder: {}'.format(hidden_decoder))
-        decoder_8 = tf.reshape(hidden_decoder, [-1, 8, 8, 1])
+        decoder_8 = tf.reshape(hidden_decoder, [-1, 8, 8, 3])
         print('Decoder 8: {}'.format(decoder_8))
         decoder_16 = upscale_block(decoder_8)
         print('Decoder 16: {}'.format(decoder_16))
         my_output = upscale_block(decoder_16)
         print('Output: {}'.format(my_output))
 
-        return opt_metrics_autoencoder(x, my_output, lr, b_1, b_2)
+        return opt_metrics_autoencoder(x, code, my_output, lr, b_1, b_2)
         
 
 def conv_block(inputs, filters, name):
@@ -94,44 +94,45 @@ def FourLayerConvNet(x, y, f_1, f_2, k_size, lr, b_1, b_2):
         return confusion_matrix, cross_entropy, train_op, global_step_tensor, saver, accuracy, lhs, rhs
 
 
-def TwoLayerSimpleConvNet(x, y, f_1, f_2, k_size, l_size_1, l_size_2, lr, b_1, b_2):
-        """
-                Args:
-                - x: models predicted output
-                - y: Actual labels for each example
-                - lr: rate for the Adam optimizer
-                - b_1: first momentum for Adam
-                - b_2: second momentum for Adam
-                - f_1: filters for hidden layer 1
-                - f_2: filter for hidden layer 2
-                - l_size_1: layer size for hidden layers
-                - l_size_2: another layer size for hidden layers
-        """
-        pool = tf.layers.MaxPooling2D(2, 2, padding='same')
+# def TwoLayerSimpleConvNet(x, y, f_1, f_2, k_size, l_size_1, l_size_2, lr, b_1, b_2):
+#         """
+#                 Args:
+#                 - x: models predicted output
+#                 - y: Actual labels for each example
+#                 - lr: rate for the Adam optimizer
+#                 - b_1: first momentum for Adam
+#                 - b_2: second momentum for Adam
+#                 - f_1: filters for hidden layer 1
+#                 - f_2: filter for hidden layer 2
+#                 - l_size_1: layer size for hidden layers
+#                 - l_size_2: another layer size for hidden layers
+#         """
+#         pool = tf.layers.MaxPooling2D(2, 2, padding='same')
 
-        conv_x = pool(conv_block(x, [32,64]))
+#         conv_x = pool(conv_block(x, [32,64], 'conv1'))
                 
-        # flatten from 4D to 2D for dense layer
-        flat = tf.reshape(conv_x, [-1, 16*16*64])
+#         # flatten from 4D to 2D for dense layer
+#         flat = tf.reshape(conv_x, [-1, 16*16*64])
 
-        # dense layer output
-        output = tf.layers.dense(flat, 100, name='output_layer')
+#         # dense layer output
+#         output = tf.layers.dense(flat, 100, name='output_layer')
 
-        tf.identity(output, name='output')
+#         tf.identity(output, name='output')
         
-        # get the model metrics
-        confusion_matrix, cross_entropy, train_op, global_step_tensor, saver, accuracy, lhs, rhs= opt_metrics(x, y, output, lr, b_1, b_2)
+#         # get the model metrics
+#         confusion_matrix, cross_entropy, train_op, global_step_tensor, saver, accuracy, lhs, rhs= opt_metrics(x, y, output, lr, b_1, b_2)
 
-        return confusion_matrix, cross_entropy, train_op, global_step_tensor, saver, accuracy, lhs, rhs
+#         return confusion_matrix, cross_entropy, train_op, global_step_tensor, saver, accuracy, lhs, rhs
 
 
-def opt_metrics_autoencoder(x, output, learning_rate, beta_1, beta_2):
+def opt_metrics_autoencoder(x, code, output, learning_rate, beta_1, beta_2):
         
         # calculate loss
-        # sparsity_loss = tf.norm(code, ord=1, axis=1)
+        sparsity_weight = 5e-3
+        sparsity_loss = tf.norm(code, ord=1, axis=1)
         reconstruction_loss = tf.reduce_mean(tf.square(output - x)) # Mean Square Error
-        # total_loss = reconstruction_loss + sparsity_weight * sparsity_loss
-        total_loss = reconstruction_loss
+        total_loss = reconstruction_loss + sparsity_weight * sparsity_loss
+        # total_loss = reconstruction_loss
 
         global_step_tensor = tf.get_variable('global_step', trainable=False, shape=[], initializer=tf.zeros_initializer)
         # Adam
