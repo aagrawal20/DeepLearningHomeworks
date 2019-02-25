@@ -13,26 +13,62 @@ def downscale_block(x, scale=2):
 # np.floor(c * 1.25)
 
 def autoencoder(x, lr, b_1, b_2):
-        encoder_16 = downscale_block(x)
-        print('Encoder_16: {}'.format(encoder_16))
-        encoder_8 = downscale_block(encoder_16)
-        print('Encoder_8: {}'.format(encoder_8))
-        flatten_dim = np.prod(encoder_8.get_shape().as_list()[1:])
-        print('flatten_dim: {}'.format(flatten_dim))
-        flat = tf.reshape(encoder_8, [-1, flatten_dim])
-        print('Flat: {}'.format(flat))
-        code = tf.layers.dense(flat, 100, activation=tf.nn.relu)
-        print('Code: {}'.format(code))
-        hidden_decoder = tf.layers.dense(code, 64, activation=tf.nn.relu)
-        print('Hidden Decoder: {}'.format(hidden_decoder))
-        decoder_8 = tf.reshape(hidden_decoder, [-1, 8, 8, 3])
-        print('Decoder 8: {}'.format(decoder_8))
-        decoder_16 = upscale_block(decoder_8)
-        print('Decoder 16: {}'.format(decoder_16))
-        my_output = upscale_block(decoder_16)
-        print('Output: {}'.format(my_output))
+        """
+        args: 
+                - x: image batch of shape [?, 32, 32, 3]
+                - lr: learning rate
+                - b_1: momentum 1
+                - b_2: momentum 2
+        
+        returns: 
 
-        return opt_metrics_autoencoder(x, code, my_output, lr, b_1, b_2)
+        """
+        
+        # encode 1 = [-1, 32, 32, 32]
+        encoder_1 = tf.layers.conv2d(x, 32, 3, strides=1, padding='same', name='encode_1')
+        print('Encoder_1: {}'.format(encoder_1))
+        
+        # encode 2 = [-1, 16, 16, 64]
+        encoder_2 = tf.layers.conv2d(encoder_1, 64, 3, strides=2, padding='same', name='encode_2')
+        print('Encoder_2: {}'.format(encoder_2))
+        
+        # encode 3 = [-1, 8, 8, 128]
+        encoder_3 = tf.layers.conv2d(encoder_2, 128, 3, strides=2, padding='same', name='encode_3')
+        print('Encoder_3: {}'.format(encoder_3))
+        
+        # flatten dimensions =  8192
+        flatten_dim = np.prod(encoder_3.get_shape().as_list()[1:])
+        print('flatten_dim: {}'.format(flatten_dim))
+        
+        # flat = [-1, 8192]
+        flat = tf.reshape(encoder_3, [-1, flatten_dim], name='flat')
+        print('Flat: {}'.format(flat))
+        
+        # code 
+        code = tf.layers.dense(flat, 1000, activation=tf.nn.relu, name='code')
+        print('Code: {}'.format(code))
+        
+        # hidden decoder = [-1, 8192]
+        hidden_decoder = tf.layers.dense(code, 8192, activation=tf.nn.relu, name='hidden_decode')
+        print('Hidden Decoder: {}'.format(hidden_decoder))
+        
+        # decoder_1 = [-1, 8, 8, 128]
+        decoder_1 = tf.reshape(hidden_decoder, [-1, 8, 8, 128], name='decode_1')
+        print('Decoder 1: {}'.format(decoder_1))
+        
+        # decoder_2 = [-1, 16, 16, 64]
+        decoder_2 = tf.layers.conv2d_transpose(decoder_1, 64, 3, strides=(2, 2), padding='same', activation=tf.nn.relu, name='decode_2')
+        print('Decoder 2: {}'.format(decoder_2))
+        
+        # decoder_3 = [-1, 32, 32, 32]
+        decoder_3 = tf.layers.conv2d_transpose(decoder_2, 32, 3, strides=(2, 2), padding='same', activation=tf.nn.relu, name='decode_3')
+        print('Decoder 3: {}'.format(decoder_3))
+        
+        # output = [-1, 32, 32, 3]
+        output = tf.layers.conv2d_transpose(decoder_3, 3, 3, strides=(1,1), padding='same', activation=tf.nn.relu, name='output')
+        print('Output: {}'.format(output))
+        
+        return opt_metrics_autoencoder(x, code, output, lr, b_1, b_2)
         
 
 def conv_block(inputs, filters, name):
