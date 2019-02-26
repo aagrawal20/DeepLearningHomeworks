@@ -3,7 +3,7 @@ import os
 import argparse
 import tensorflow as tf
 from util import one_hot_encode, split_data
-from model import TwoLayerSimpleConvNet, model_summary, FourLayerConvNet, autoencoder
+from model import model_summary, autoencoder, FourLayerConvNet
 
 # setup parser
 parser = argparse.ArgumentParser(description='Classify Fmnist images.')
@@ -41,7 +41,7 @@ output = tf.placeholder(tf.float32, [None, 100], name='label_placeholder')
 layer_size_1=256
 layer_size_2=256
 
-if args.load_data is 'CIFAR':
+if args.load_data == 'CIFAR':
     # get CIFAR-100 data and process it
     labels = np.load('/work/cse496dl/shared/homework/02/cifar_labels.npy')
     data = np.load('/work/cse496dl/shared/homework/02/cifar_images.npy')
@@ -61,6 +61,11 @@ if args.load_data is 'CIFAR':
 
     # four layer
     confusion_matrix_op_1, cross_entropy_1, train_op_1, global_step_tensor_1, saver_1, accuracy_1, lhs_1, rhs_1 = FourLayerConvNet(input, output, args.filter_1, args.filter_2, args.kernel_size, args.learning_rate, args.momentum_1, args.momentum_2)
+    print("LABELS")
+    print(labels.shape)
+    print("=======================================")
+    print("DATA SHAPE")
+    print(data.shape)
 
 else:
     # get ImageNet data and process its
@@ -71,12 +76,10 @@ else:
     # image net 
     total_loss_1, train_op_1, global_step_tensor_1, saver_1 = autoencoder(input, args.learning_rate, args.momentum_1, args.momentum_2)
 
+    print("=======================================")
+    print("DATA SHAPE")
+    print(data.shape)
 
-# print("LABELS")
-# print(labels.shape)
-print("=======================================")
-print("DATA SHAPE")
-print(data.shape)
 
 
 # Training
@@ -91,10 +94,10 @@ with tf.Session() as session:
     print('Model: {}'.format(args.load_data))
     print('Batch Size: {}'.format(batch_size))
     print('Epochs: {}'.format(args.epochs))
-    # print('Filter 1: {}'.format(args.filter_1))
-    # print('Filter 2: {}'.format(args.filter_2))
-    # print('Kernel Size: {}'.format(args.kernel_size))
-    # model_summary()
+    print('Filter 1: {}'.format(args.filter_1))
+    print('Filter 2: {}'.format(args.filter_2))
+    print('Kernel Size: {}'.format(args.kernel_size))
+    model_summary()
 
     # training loop
     for epoch in range(args.epochs):
@@ -104,40 +107,46 @@ with tf.Session() as session:
         
         # list to store cross entropy and confusion matrices
         loss_vals = []
-        # conf_mxs = []
+        conf_mxs = []
         
         # run gradient steps tnd report mean loss on train data
         for i in range(train_num_examples // batch_size):
             
-            # get batches of data
-            batch_xs = train_data[i * batch_size:(i + 1) * batch_size, :]
-            # batch_ys = train_labels[i * batch_size:(i+1) * batch_size, :]
-            
             # train
-            if args.load_data is 'CIFAR':
-
-                _, train_loss, conf_matrix, accuracy, lhs, rhs = session.run([train_op_1, cross_entropy_1, confusion_matrix_op_1, accuracy_1, lhs_1, rhs_1], {input: batch_xs, output: batch_ys})
-            else:
-                _, train_loss = session.run([train_op_1, total_loss_1], {input: batch_xs})
-            # append cross entropy loss and confusion matrix predictions
+            if args.load_data == 'CIFAR':
+                # get batches of data
+                batch_xs = train_data[i * batch_size:(i + 1) * batch_size, :]
+                batch_ys = train_labels[i * batch_size:(i+1) * batch_size, :]
+                _, train_loss, conf_matrix, accuracy, lhs, rhs = session.run([train_op_1, cross_entropy_1, 
+                                                                                confusion_matrix_op_1, accuracy_1, lhs_1, rhs_1], {input: batch_xs, output: batch_ys})
+                # append cross entropy loss and confusion matrix predictions
                 loss_vals.append(train_loss)
-            # conf_mxs.append(conf_matrix)
-        
-        # train crossentropy
-        avg_train_loss = sum(loss_vals) / len(loss_vals)
-        
-        # return metrics
-        print('----------TRAIN STATS----------\n')
-        print('TRAINING LOSS: ' + str(avg_train_loss))
-        # print('TRAIN ACCURACY: ' + str(accuracy))
-        # print('TRAIN CONFUSION MATRIX:')
-        # print(str(sum(conf_mxs)))
-        # print('TRAIN CONFIDENCE INTERVAL: {},{}\n'.format(lhs,rhs))
-        
-        
-        
+                conf_mxs.append(conf_matrix)
+
+            else:
+                # get batches of data
+                batch_xs = train_data[i * batch_size:(i + 1) * batch_size, :]
+                _, train_loss = session.run([train_op_1, total_loss_1], {input: batch_xs})
+                # append loss
+                loss_vals.append(train_loss) 
+
+        avg_train_loss = sum(loss_vals) / len(loss_vals)        
+
+        if args.load_data == 'CIFAR':        
+            # return metrics
+            print('----------TRAIN STATS----------\n')
+            print('TRAINING LOSS: ' + str(avg_train_loss))
+            print('TRAIN ACCURACY: ' + str(accuracy))
+            print('TRAIN CONFUSION MATRIX:')
+            print(str(sum(conf_mxs)))
+            print('TRAIN CONFIDENCE INTERVAL: {},{}\n'.format(lhs,rhs))
+        else:
+             # return metrics
+            print('----------TRAIN STATS----------\n')
+            print('TRAINING LOSS: ' + str(min(avg_train_loss)))
+    
         # test
-        if args.load_data is 'CIFAR':
+        if args.load_data == 'CIFAR':
 
             print('----------TEST STATS----------\n')
             # resetting variables
