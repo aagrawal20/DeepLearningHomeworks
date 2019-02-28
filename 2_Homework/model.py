@@ -285,7 +285,7 @@ def FourLayerConvNet(x, y, lr, b_1, b_2):
         dense_5 = tf.layers.Dense(64, name='dense_5', activation=tf.nn.relu)(dense_4)
 
         # dense layer output
-        output = tf.layers.Dense(32, name='output_layer')(dense_5)
+        output = tf.layers.Dense(100, name='output_layer')(dense_5)
 
         tf.identity(output, name='output')
         # get the model metrics
