@@ -22,7 +22,7 @@ def autoencoder(x, lr, b_1, b_2):
         b_norm_2 = tf.layers.BatchNormalization(trainable=True)(relu_2)
 
         encoder_3 = tf.layers.Conv2D(128, 3, 2, padding='same', name='encode_3', kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=0.1))(b_norm_2)
-        relu_3 = tf.nn.relu(encode_3, name='relu_3')
+        relu_3 = tf.nn.relu(encoder_3, name='relu_3')
         b_norm_3 = tf.layers.BatchNormalization(trainable=True)(relu_3)
 
         flatten_dim = np.prod(b_norm_3.get_shape().as_list()[1:])       
@@ -31,15 +31,15 @@ def autoencoder(x, lr, b_1, b_2):
         hidden_decoder = tf.layers.Dense(512, activation=tf.nn.relu, name='hidden_decode')(code)
         decoder_1 = tf.reshape(hidden_decoder, [-1, 8, 8, 8], name='decode_1')
   
-        decoder_2 = tf.layers.Conv2DTranspose(128, 3, (2, 2), padding='same', name='decode_2')(decoder_1) 
+        decoder_2 = tf.layers.Conv2DTranspose(64, 3, (2, 2), padding='same', name='decode_2')(decoder_1) 
         relu_4= tf.nn.relu(decoder_2, name='relu_4')
         b_norm_4 = tf.layers.BatchNormalization(trainable=True)(relu_4)
 
-        decoder_3 = tf.layers.Conv2DTranspose(64, 3, (2, 2), padding='same', name='decode_3')(b_norm_4)   
+        decoder_3 = tf.layers.Conv2DTranspose(32, 3, (2, 2), padding='same', name='decode_3')(b_norm_4)   
         relu_5 = tf.nn.relu(decoder_3, name='relu_5')
         b_norm_5 = tf.layers.BatchNormalization(trainable=True)(relu_5)
 
-        output = tf.layers.Conv2DTranspose(32, 3, strides=(1,1), padding='same', name='output')(b_norm_5)
+        output = tf.layers.Conv2DTranspose(3, 3, strides=(1,1), padding='same', name='output')(b_norm_5)
         
         return opt_metrics_autoencoder(x, code, output, lr, b_1, b_2)
         

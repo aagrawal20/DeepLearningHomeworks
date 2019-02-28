@@ -3,7 +3,7 @@ import os
 import argparse
 import tensorflow as tf
 from util import one_hot_encode, split_data
-from model import model_summary, autoencoder, FourLayerConvNet
+from model import model_summary, autoencoder, sep_autoencoder, FourLayerConvNet
 
 # setup parser
 parser = argparse.ArgumentParser(description='Classify Fmnist images.')
@@ -41,26 +41,26 @@ output = tf.placeholder(tf.float32, [None, 100], name='label_placeholder')
 layer_size_1=256
 layer_size_2=256
 
-session = tf.Session()
-
 if args.load_data == 'CIFAR':
     # get CIFAR-100 data and process it
     labels = np.load('/work/cse496dl/shared/homework/02/cifar_labels.npy')
     data = np.load('/work/cse496dl/shared/homework/02/cifar_images.npy')
     data = np.reshape(data, [-1, 32, 32, 3])
-
     # one hot encode labels
     labels = one_hot_encode(labels)
 
     # train-test split
-    train_data, train_labels, test_data, test_labels = split_data(0.9, data, labels)
+    # train_data, train_labels, test_data, test_labels = split_data(0.9, data, labels)
 
     # number of examples
-    train_num_examples, test_num_examples = train_data.shape[0], test_data.shape[0]
+    # train_num_examples, test_num_examples = train_data.shape[0], test_data.shape[0]
+    train_num_examples = data.shape[0]
+    train_data, train_labels = data, labels
+    # two layer  
+    # confusion_matrix_op_1, cross_entropy_1, train_op_1, global_step_tensor_1, saver_1, accuracy_1, lhs_1, rhs_1 = TwoLayerSimpleConvNet(input, output, args.filter_1, args.filter_2, args.kernel_size, layer_size_1, layer_size_2, args.learning_rate, args.momentum_1, args.momentum_2)
 
     # four layer
-    confusion_matrix_op_1, cross_entropy_1, train_op_1, global_step_tensor_1, saver_1, accuracy_1, lhs_1, rhs_1 = FourLayerConvNet(input, output, args.filter_1, args.filter_2, args.kernel_size, args.learning_rate, args.momentum_1, args.momentum_2)
-    
+    confusion_matrix_op_1, cross_entropy_1, train_op_1, global_step_tensor_1, saver_1, accuracy_1, lhs_1, rhs_1 = FourLayerConvNet(input, output, args.learning_rate, args.momentum_1, args.momentum_2)
     print("LABELS")
     print(labels.shape)
     print("=======================================")
@@ -74,7 +74,7 @@ else:
     train_num_examples = train_data.shape[0]
 
     # image net 
-    total_loss_1, train_op_1, global_step_tensor_1, saver_1 = autoencoder(input, args.learning_rate, args.momentum_1, args.momentum_2)
+    total_loss_1, train_op_1, global_step_tensor_1, saver_1 = sep_autoencoder(input, args.learning_rate, args.momentum_1, args.momentum_2)
 
     print("=======================================")
     print("DATA SHAPE")
@@ -83,7 +83,7 @@ else:
 
 
 # Training
-with session as session:
+with tf.Session() as session:
     # initialize variables
     session.run(tf.global_variables_initializer())
     
@@ -91,8 +91,7 @@ with session as session:
     batch_size = args.batch_size
     
     # Hypterparameter information
-    print('Data: {}'.format(args.load_data))
-    print('Model: {}'.format('Autoencoder'))
+    print('Model: {}'.format(args.load_data))
     print('Batch Size: {}'.format(batch_size))
     print('Epochs: {}'.format(args.epochs))
     print('Filter 1: {}'.format(args.filter_1))
@@ -183,3 +182,5 @@ with session as session:
 
         
 print('----------FINISHED----------\n')
+
+        
