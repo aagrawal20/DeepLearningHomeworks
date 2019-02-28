@@ -41,6 +41,8 @@ output = tf.placeholder(tf.float32, [None, 100], name='label_placeholder')
 layer_size_1=256
 layer_size_2=256
 
+session = tf.Session()
+
 if args.load_data == 'CIFAR':
     # get CIFAR-100 data and process it
     labels = np.load('/work/cse496dl/shared/homework/02/cifar_labels.npy')
@@ -56,11 +58,9 @@ if args.load_data == 'CIFAR':
     # number of examples
     train_num_examples, test_num_examples = train_data.shape[0], test_data.shape[0]
 
-    # two layer  
-    # confusion_matrix_op_1, cross_entropy_1, train_op_1, global_step_tensor_1, saver_1, accuracy_1, lhs_1, rhs_1 = TwoLayerSimpleConvNet(input, output, args.filter_1, args.filter_2, args.kernel_size, layer_size_1, layer_size_2, args.learning_rate, args.momentum_1, args.momentum_2)
-
     # four layer
     confusion_matrix_op_1, cross_entropy_1, train_op_1, global_step_tensor_1, saver_1, accuracy_1, lhs_1, rhs_1 = FourLayerConvNet(input, output, args.filter_1, args.filter_2, args.kernel_size, args.learning_rate, args.momentum_1, args.momentum_2)
+    
     print("LABELS")
     print(labels.shape)
     print("=======================================")
@@ -83,7 +83,7 @@ else:
 
 
 # Training
-with tf.Session() as session:
+with session as session:
     # initialize variables
     session.run(tf.global_variables_initializer())
     
@@ -91,7 +91,8 @@ with tf.Session() as session:
     batch_size = args.batch_size
     
     # Hypterparameter information
-    print('Model: {}'.format(args.load_data))
+    print('Data: {}'.format(args.load_data))
+    print('Model: {}'.format('Autoencoder'))
     print('Batch Size: {}'.format(batch_size))
     print('Epochs: {}'.format(args.epochs))
     print('Filter 1: {}'.format(args.filter_1))
@@ -182,5 +183,3 @@ with tf.Session() as session:
 
         
 print('----------FINISHED----------\n')
-
-        
