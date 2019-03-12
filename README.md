@@ -1,4 +1,4 @@
-# DeepLearningHomeworks
+# DeepLearning Homeworks
 
 These are the programming assignments that were given to us during our Deep Learning class. You can find the assignment description in the appropriate assignment folder. 
 We couldn't upload the datasets on the repository but the following datasets have been used for each homework.
