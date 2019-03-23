@@ -74,7 +74,7 @@ else:
     train_num_examples = train_data.shape[0]
 
     # image net 
-    total_loss_1, train_op_1, global_step_tensor_1, saver_1 = sep_autoencoder(input, args.learning_rate, args.momentum_1, args.momentum_2)
+    total_loss_1, train_op_1, global_step_tensor_1, saver_1 = autoencoder(input, args.learning_rate, args.momentum_1, args.momentum_2)
 
     print("=======================================")
     print("DATA SHAPE")
