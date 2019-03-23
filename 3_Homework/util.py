@@ -1,5 +1,6 @@
 import random
 import math
+import numpy as np
 import tensorflow as tf
 import collections
 
@@ -26,7 +27,7 @@ class ReplayMemory(object):
     def __len__(self):
         return len(self.memory)
 
-def select_eps_greedy_action(policy_model, obs, step, num_actions, EPS_START=1, EPS_END=0.1, EPS_DECAY=100000):
+def select_eps_greedy_action(session, input, policy_model, obs, step, num_actions, EPS_START=1, EPS_END=0.1, EPS_DECAY=100000):
     """
     Decides whether the agent should exploit or explore
 
@@ -43,9 +44,11 @@ def select_eps_greedy_action(policy_model, obs, step, num_actions, EPS_START=1, 
     eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * step / EPS_DECAY)
     # exploit
     if random.random() > eps_threshold:
-        action = tf.argmax(policy_model(tf.convert_to_tensor(obs)), axis=1)
+        output = session.run([policy_model.output], feed_dict={input:obs})
+        action = tf.argmax(output[0], axis=1)
     # explore
     else:
         action = random.randrange(num_actions)
+      
 
     return action
