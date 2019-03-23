@@ -45,7 +45,7 @@ def select_eps_greedy_action(session, input, policy_model, obs, step, num_action
     # exploit
     if random.random() > eps_threshold:
         output = session.run([policy_model.output], feed_dict={input:obs})
-        action = tf.argmax(output[0], axis=1)
+        action = np.argmax(output[0])
     # explore
     else:
         action = random.randrange(num_actions)
