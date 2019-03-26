@@ -17,7 +17,7 @@ class AtariNet:
             self.flat = tf.keras.layers.Flatten()(self.conv_3)
             self.dense_1 = tf.keras.layers.Dense(512, activation=tf.nn.relu)(self.flat)
             self.output = tf.keras.layers.Dense(action_num)(self.dense_1)
-            tf.identity(self.output, name='output')
+            
 
             # self.global_step_tensor = tf.get_variable('global_step', trainable=False, shape=[], initializer=tf.zeros_initializer)
             self.saver = tf.train.Saver()
@@ -25,6 +25,8 @@ class AtariNet:
             self.loss = tf.losses.huber_loss(self.target_Q, self.Q)
             # tf.reduce_mean(tf.square(self.target_Q - self.Q)) 
             self.train_op = tf.train.RMSPropOptimizer(learning_rate).minimize(self.loss)
+        
+        tf.identity(self.output, name='output')
 
 # def atari_net(x, input_shape, action_num):
     
