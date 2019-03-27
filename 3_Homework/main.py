@@ -96,7 +96,7 @@ with tf.Session() as session:
         steps = 0
         exploit= 0 
         explore = 0
-        while steps < 100: # until the episode ends
+        while steps < max_steps: # until the episode ends
             steps += 1
             
             
@@ -137,6 +137,9 @@ with tf.Session() as session:
             step += 1
             exploit= count_exploit 
             explore = count_explore
+            
+            if done:
+                break
 
             
         #update the target network, copying all variables in DQN
@@ -162,7 +165,7 @@ with tf.Session() as session:
                 
         print("| Steps: {}".format(steps))
         print("| Score: {}".format(ep_score))
-        print("| Expore: {}".format(count_explore))
+        print("| Explore: {}".format(count_explore))
         print("| Exploit: {}".format(count_exploit))
         print("------------------")
         # print("Episode {} achieved score {} at {} training steps\n".format(episode, ep_score, step))
