@@ -5,7 +5,7 @@ import tensorflow as tf
 import collections
 import sys
 
-Transition = collections.namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
+Transition = collections.namedtuple('Transition', ('old_state', 'action', 'cur_state', 'cur_reward', 'next_state', 'next_reward'))
 
 
 class ReplayMemory(object):
