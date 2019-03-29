@@ -35,7 +35,7 @@ OBS_SHAPE = env.observation_space.shape
 # setup placeholders
 input = tf.placeholder(tf.float32, [None, 84, 84, 4], name='input_placeholder')
 expected_vals = tf.placeholder(tf.float32, [None, 84, 84, 4] )
-state_vals = tf.placeholder(tf.float32, [None, 84, 84, 4])
+
 
 # setup hyperparameters
 TARGET_UPDATE_STEP_FREQ = args.target_update
@@ -53,7 +53,7 @@ GAMMA = 0.99
 policy_model = AtariNet(input, OBS_SHAPE, NUM_ACTIONS, LEARNING_RATE)
 target_model = AtariNet(input, OBS_SHAPE, NUM_ACTIONS, LEARNING_RATE)
 replay_memory = ReplayMemory(REPLAY_BUFFER_SIZE)
-# loss, train_op, global_step_tensor, saver = dqn_gradients(expected_vals, state_vals, BATCH_SIZE, LEARNING_RATE)
+
 
 print("Batch Size: {}".format(BATCH_SIZE))
 print("Episodes: {}".format(EPISODE_NUM))
@@ -67,46 +67,55 @@ print("========================\n")
 with tf.Session() as session:
     # initialize variables
     session.run(tf.global_variables_initializer())
-    step = 0
+    # setup variable counters
+    step, exploit, explore = 0, 0, 0
     score_list = [] 
-    exploit= 0 
-    explore = 0
-    
+
+    # wait till atleast 64 observations are loaded into replay memory
     while len(replay_memory) < BATCH_SIZE:
+        # get previous observeration
         prev_observation = env.reset()
-        observation, reward, done, _ = env.step(random.randrange(NUM_ACTIONS))
-        
-        prepped_obs = np.expand_dims(np.array(observation, dtype=np.float32), axis=0)
+        # get new observation based on random action
+        cur_observation, cur_reward, done, _ = env.step(random.randrange(NUM_ACTIONS))
+        # stack observations
+        prepped_obs = np.expand_dims(np.array(cur_observation, dtype=np.float32), axis=0)
+        # take greedy action
         action, count_explore, count_exploit = select_eps_greedy_action(session, input, policy_model, prepped_obs, step, NUM_ACTIONS, EPS_START, EPS_END, EPS_DECAY, exploit, explore)
-        observation, reward, done, info = env.step(action)
+        # 
+        next_observation, next_reward, done, info = env.step(action)
         # add to memory
         print("Filling Replay Memory.", end='\r')
-        replay_memory.push(prev_observation, action, observation, reward)
+        replay_memory.push(prev_observation, action, cur_observation, cur_reward, next_observation, next_reward)
     
     print("\n====================\n")
     print("Training Start\n")
     for episode in range(EPISODE_NUM):
         print("------------------")
         print("| Episode: {}".format(episode))
-        # initialize environment
+        # get previous observation
         prev_observation = env.reset()
-        observation, reward, done, _ = env.step(random.randrange(NUM_ACTIONS))
+        # take random action and get observations
+        cur_observation, cur_reward, done, _ = env.step(random.randrange(NUM_ACTIONS))
         done = False
-        ep_score = 0
-        steps = 0
-        exploit= 0 
-        explore = 0
-        while steps < max_steps: # until the episode ends
+        # setup variables
+        ep_score, steps, exploit, explore = 0, 0, 0, 0
+        
+        while not done: # until the episode ends
+            # increment step count
             steps += 1
+         
+            # select a greedy action and get observations
+            prepped_obs = np.expand_dims(np.array(cur_observation, dtype=np.float32), axis=0)
             
-            
-            # select and perform an action
-            prepped_obs = np.expand_dims(np.array(observation, dtype=np.float32), axis=0)
             action, count_explore, count_exploit = select_eps_greedy_action(session, input, policy_model, prepped_obs, step, NUM_ACTIONS, EPS_START, EPS_END, EPS_DECAY, exploit, explore)
-            observation, reward, done, info = env.step(action)
+            
+            next_observation, next_reward, done, info = env.step(action)
             # add to memory
-            replay_memory.push(prev_observation, action, observation, reward)
-            prev_observation = observation
+            replay_memory.push(prev_observation, action, cur_observation, cur_reward, next_observation, next_reward)
+            
+            # set previous observation to current observation
+            prev_observation = cur_observation
+            cur_observation = next_observation
 
             # before enough transitions are collected to form a batch
             if len(replay_memory) < BATCH_SIZE:
@@ -115,31 +124,32 @@ with tf.Session() as session:
             # prepare training batch
             transitions = replay_memory.sample(BATCH_SIZE)
             batch = Transition(*zip(*transitions))
-            next_states = np.array(batch.next_state, dtype=np.float32)
-            state_batch = np.array(batch.state, dtype=np.float32)
+            old_state_batch = np.array(batch.old_state, dtype=np.float32)
+            next_state_batch = np.array(batch.next_state, dtype=np.float32)
+            cur_state_batch = np.array(batch.cur_state, dtype=np.float32)
             action_batch = np.array(batch.action, dtype=np.int64)
-            reward_batch = np.array(batch.reward)
+            cur_reward_batch = np.array(batch.cur_reward)
+            next_reward_batch = np.array(batch.next_reward)
 
             # state values
-            state_output = session.run([policy_model.output], feed_dict={input:state_batch})
+            state_actions = session.run([policy_model.output], feed_dict={input: cur_state_batch})
 
+            
             # calculate best value at next state
-            next_state_output = session.run([policy_model.output], feed_dict={input:next_states})
-            next_state_values = np.amax(next_state_output[0], axis=1)
+            next_state_actions = session.run([target_model.output], feed_dict={input:next_state_batch})
+            next_state_values = np.amax(next_state_actions[0], axis=1)
             # compute the expected Q values
-            expected_state_action_values = (next_state_values * GAMMA) + reward_batch
+            target_qvals = cur_reward_batch + (GAMMA * next_reward_batch) + ((GAMMA**2) * next_state_values)
+            
             # optimize
-            loss, _ = session.run([policy_model.loss, policy_model.train_op], feed_dict={input: state_batch,
-                                                                                        policy_model.target_Q: expected_state_action_values,
-                                                                                        policy_model.actions: state_output[0]})
-
-            ep_score += reward
+            #loss, Q = policy_model.loss_optimize(session, cur_state_batch, state_actions, target_qvals)
+            loss, _ = session.run([policy_model.loss, policy_model.train_op], feed_dict={input: cur_state_batch, policy_model.target_Q: target_qvals, policy_model.actions: state_actions[0]})
+           
+            # update variable values
+            ep_score += cur_reward
             step += 1
             exploit= count_exploit 
-            explore = count_explore
-            
-            if done:
-                break
+            explore = count_explore 
 
             
         #update the target network, copying all variables in DQN
@@ -162,11 +172,14 @@ with tf.Session() as session:
             # run session to transfer weights
             for op in ops:
                 session.run(op)
+            # save target model
+            target_model.saver.save(session, args.model_dir + "target/" + "homework_3")
                 
         print("| Steps: {}".format(steps))
         print("| Score: {}".format(ep_score))
         print("| Explore: {}".format(count_explore))
         print("| Exploit: {}".format(count_exploit))
+        print("| Total steps taken: {}".format(step))
         print("------------------")
         # print("Episode {} achieved score {} at {} training steps\n".format(episode, ep_score, step))
         score_list.append(ep_score)
@@ -176,4 +189,4 @@ with tf.Session() as session:
     print("Top score for all episodes: {}".format(max(score_list)))
     print("Total steps taken: {}".format(step))
     policy_model.saver.save(session, args.model_dir + "policy/" + "homework_3")
-    target_model.saver.save(session, args.model_dir + "target/" + "homework_3")
+    
