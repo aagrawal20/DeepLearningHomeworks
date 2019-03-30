@@ -31,8 +31,6 @@ class AtariNet:
         # self.optimizer = tf.contrib.estimator.clip_gradients_by_norm(self.org_optimizer, clip_norm=1.0)
         # self.train_op = self.optimizer.minimize(self.loss)
         
-
-        
         
     def loss_optimize(self, session, cur_state_batch, actions, target_qvals):
         loss, _, Q = session.run([self.loss, self.train_op, self.Q], feed_dict={input:cur_state_batch, self.target_Q: target_qvals, self.actions:actions[0]})
