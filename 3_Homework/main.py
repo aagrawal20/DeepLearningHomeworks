@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser(description='Train Atari Agent.')
 parser.add_argument(
     '--model_dir',
     type=str,
-    default='/work/cse496dl/teams/Dropouts/3_Homework/agent_1/',
+    default='/work/cse496dl/teams/Dropouts/3_Homework/test_agent/',
     help='directory where model graph and weights are saved')
 parser.add_argument('--batch_size', type=int, default=64, help='mini batch size for training')
 parser.add_argument('--ep_num', type=int, default=100, help='number of episodes to run')
@@ -26,7 +26,7 @@ parser.add_argument('--max_steps', type=int, default=50000, help='max steps per 
 args = parser.parse_args()
 
 # load environment
-env = atari_wrappers.wrap_deepmind(atari_wrappers.make_atari('SeaquestNoFrameskip-v4'), frame_stack=True)
+env = atari_wrappers.wrap_deepmind(atari_wrappers.make_atari('SeaquestNoFrameskip-v4'),frame_stack=True)
 # get shape of actions
 NUM_ACTIONS = env.action_space.n
 # get shape of observations
@@ -101,8 +101,8 @@ with tf.Session() as session:
         ep_score, steps, exploit, explore = 0, 0, 0, 0
         
         while not done: # until the episode ends
-            # increment step count
             steps += 1
+            print("| Steps: {}".format(steps), end='\r')
          
             # select a greedy action and get observations
             prepped_obs = np.expand_dims(np.array(cur_observation, dtype=np.float32), axis=0)
@@ -124,7 +124,6 @@ with tf.Session() as session:
             # prepare training batch
             transitions = replay_memory.sample(BATCH_SIZE)
             batch = Transition(*zip(*transitions))
-            old_state_batch = np.array(batch.old_state, dtype=np.float32)
             next_state_batch = np.array(batch.next_state, dtype=np.float32)
             cur_state_batch = np.array(batch.cur_state, dtype=np.float32)
             action_batch = np.array(batch.action, dtype=np.int64)
@@ -138,15 +137,19 @@ with tf.Session() as session:
             # calculate best value at next state
             next_state_actions = session.run([target_model.output], feed_dict={input:next_state_batch})
             next_state_values = np.amax(next_state_actions[0], axis=1)
+            
             # compute the expected Q values
+
+            # 2 step time difference
             target_qvals = cur_reward_batch + (GAMMA * next_reward_batch) + ((GAMMA**2) * next_state_values)
             
+            # 1 step time difference
+            # target_qvals = cur_reward_batch + (GAMMA * next_state_values)
             # optimize
-            #loss, Q = policy_model.loss_optimize(session, cur_state_batch, state_actions, target_qvals)
             loss, _ = session.run([policy_model.loss, policy_model.train_op], feed_dict={input: cur_state_batch, policy_model.target_Q: target_qvals, policy_model.actions: state_actions[0]})
            
             # update variable values
-            ep_score += cur_reward
+            ep_score += next_reward
             step += 1
             exploit= count_exploit 
             explore = count_explore 
@@ -181,7 +184,6 @@ with tf.Session() as session:
         print("| Exploit: {}".format(count_exploit))
         print("| Total steps taken: {}".format(step))
         print("------------------")
-        # print("Episode {} achieved score {} at {} training steps\n".format(episode, ep_score, step))
         score_list.append(ep_score)
 
     avg_score = (sum(score_list))/(len(score_list))
@@ -189,4 +191,3 @@ with tf.Session() as session:
     print("Top score for all episodes: {}".format(max(score_list)))
     print("Total steps taken: {}".format(step))
     policy_model.saver.save(session, args.model_dir + "policy/" + "homework_3")
-    
