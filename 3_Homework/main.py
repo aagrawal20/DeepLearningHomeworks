@@ -82,7 +82,7 @@ with tf.Session() as session:
         # stack observations
         prepped_obs = np.expand_dims(np.array(cur_observation, dtype=np.float32), axis=0)
         # take greedy action
-        action, count_explore, count_exploit = select_eps_greedy_action(session, input, policy_model, prepped_obs, step, NUM_ACTIONS, EPS_START, EPS_END, EPS_DECAY, exploit, explore)
+        action, count_explore, count_exploit = select_eps_greedy_action(session, input, policy_model, prepped_obs, total_steps, NUM_ACTIONS, EPS_START, EPS_END, EPS_DECAY, exploit, explore)
         # 
         next_observation, next_reward, done, info = env.step(action)
         # add to memory
@@ -103,14 +103,14 @@ with tf.Session() as session:
         # setup variables
         ep_score, steps, exploit, explore = 0, 0, 0, 0
         
-        while not done or (steps > 10 and reward == 0.0): # until the episode ends
+        while not done: # until the episode ends
             steps += 1
             print("| Steps: {}".format(steps), end='\r')
          
             # select a greedy action and get observations
             prepped_obs = np.expand_dims(np.array(cur_observation, dtype=np.float32), axis=0)
             
-            action, count_explore, count_exploit = select_eps_greedy_action(session, input, policy_model, prepped_obs, step, NUM_ACTIONS, EPS_START, EPS_END, EPS_DECAY, exploit, explore)
+            action, count_explore, count_exploit = select_eps_greedy_action(session, input, policy_model, prepped_obs, total_steps, NUM_ACTIONS, EPS_START, EPS_END, EPS_DECAY, exploit, explore)
             
             next_observation, next_reward, done, info = env.step(action)
             # add to memory
@@ -152,17 +152,22 @@ with tf.Session() as session:
                 # target_qvals = cur_reward_batch + (GAMMA * next_state_values)
                 # optimize
                 loss, _ = session.run([policy_model.loss, policy_model.train_op], feed_dict={input: cur_state_batch, policy_model.target_Q: target_qvals, policy_model.actions: state_actions[0]})
-
+                
+            
             # update variable values
             ep_score += next_reward
-            step += 1
+            total_steps += 1
             exploit= count_exploit 
             explore = count_explore 
+            
+            # if agent is not doing anything significant
+            if steps >= 1000 and next_reward == 0.0:
+                break
 
             
-            print("Loss: ".format(loss))
+            
         #update the target network, copying all variables in DQN
-        if episode % TARGET_UPDATE_STEP_FREQ == 0:
+        if total_steps % TARGET_UPDATE_STEP_FREQ == 0:
             # get trainable variables
             trainable_vars = tf.trainable_variables()
             # length of trainable variables
@@ -188,12 +193,13 @@ with tf.Session() as session:
         print("| Score: {}".format(ep_score))
         print("| Explore: {}".format(count_explore))
         print("| Exploit: {}".format(count_exploit))
-        print("| Total steps taken: {}".format(step))
+        print("| Total steps taken: {}".format(total_steps))
         print("------------------")
         score_list.append(ep_score)
 
     avg_score = (sum(score_list))/(len(score_list))
     print("\nAverage episode score: {}".format(avg_score))
+    print("Loss: ".format(loss))
     print("Top score for all episodes: {}".format(max(score_list)))
-    print("Total steps taken: {}".format(step))
+    print("Total steps taken: {}".format(total_steps))
     policy_model.saver.save(session, args.model_dir + "policy/" + "homework_3")
