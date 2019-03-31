@@ -26,7 +26,7 @@ parser.add_argument('--max_steps', type=int, default=50000, help='max steps per 
 args = parser.parse_args()
 
 # load environment
-env = atari_wrappers.wrap_deepmind(atari_wrappers.make_atari('SeaquestNoFrameskip-v4'),frame_stack=True)
+env = atari_wrappers.wrap_deepmind(atari_wrappers.make_atari('SeaquestNoFrameskip-v4'),clip_rewards=False, frame_stack=True)
 # get shape of actions
 NUM_ACTIONS = env.action_space.n
 # get shape of observations
@@ -154,7 +154,14 @@ with tf.Session() as session:
             exploit= count_exploit 
             explore = count_explore 
 
-            
+        # Gradually updating when target model is saved 
+        if episode == 10:
+            TARGET_UPDATE_STEP_FREQ = 10
+        elif episode == 100:
+            TARGET_UPDATE_STEP_FREQ = 100
+        elif episode == 1000:
+            TARGET_UPDATE_STEP_FREQ = 1000
+        
         #update the target network, copying all variables in DQN
         if episode % TARGET_UPDATE_STEP_FREQ == 0:
             # get trainable variables

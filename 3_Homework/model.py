@@ -27,9 +27,9 @@ class AtariNet:
         self.loss = tf.losses.huber_loss(self.Q, self.target_Q)
             # tf.reduce_mean(tf.square(self.target_Q - self.Q)) 
         self.org_optimizer = tf.train.AdamOptimizer(learning_rate)
-        self.train_op = self.org_optimizer.minimize(self.loss)
-        # self.optimizer = tf.contrib.estimator.clip_gradients_by_norm(self.org_optimizer, clip_norm=1.0)
-        # self.train_op = self.optimizer.minimize(self.loss)
+        # self.train_op = self.org_optimizer.minimize(self.loss)
+        self.optimizer = tf.contrib.estimator.clip_gradients_by_norm(self.org_optimizer, clip_norm=1.0)
+        self.train_op = self.optimizer.minimize(self.loss)
         
         
     def loss_optimize(self, session, cur_state_batch, actions, target_qvals):
