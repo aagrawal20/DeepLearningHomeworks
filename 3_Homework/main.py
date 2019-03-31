@@ -13,14 +13,15 @@ parser.add_argument(
     type=str,
     default='/work/cse496dl/teams/Dropouts/3_Homework/test_agent/',
     help='directory where model graph and weights are saved')
-parser.add_argument('--batch_size', type=int, default=64, help='mini batch size for training')
+parser.add_argument('--batch_size', type=int, default=32, help='mini batch size for training')
 parser.add_argument('--ep_num', type=int, default=100, help='number of episodes to run')
-parser.add_argument('--learning_rate', type=float, default=5e-4, help='Learning rate for optimizer')
-parser.add_argument('--target_update', type=float, default=500, help='Frequency of Target update step')
+parser.add_argument('--learning_rate', type=float, default=0.0001, help='Learning rate for optimizer')
+parser.add_argument('--target_update', type=float, default=10, help='Frequency of Target update step')
 parser.add_argument('--eps_start', type=float, default = 1.)
 parser.add_argument('--eps_end', type=float, default = 0.01)
 parser.add_argument('--eps_decay', type=int, default=100000, help='Decay for the epsilon threshold')
-parser.add_argument('--max_steps', type=int, default=50000, help='max steps per episode')
+parser.add_argument('--max_steps_per_game', type=int, default=50000, help='max steps per episode')
+parser.add_argument('--start_learning', type=int, default=10000, help='learning starts after these many steps')
 
 # setup parser arguments
 args = parser.parse_args()
@@ -44,8 +45,9 @@ EPS_START = args.eps_start
 EPS_END = args.eps_end
 EPS_DECAY = args.eps_decay
 EPISODE_NUM = args.ep_num
-REPLAY_BUFFER_SIZE = 50000
-max_steps = args.max_steps
+REPLAY_BUFFER_SIZE = 10000
+start_learning=args.start_learning
+max_steps_per_game = args.max_steps_per_game
 LEARNING_RATE = args.learning_rate
 GAMMA = 0.99
 
@@ -68,7 +70,7 @@ with tf.Session() as session:
     # initialize variables
     session.run(tf.global_variables_initializer())
     # setup variable counters
-    step, exploit, explore = 0, 0, 0
+    total_steps, exploit, explore, episode = 0, 0, 0, 0
     score_list = [] 
 
     # wait till atleast 64 observations are loaded into replay memory
@@ -89,7 +91,8 @@ with tf.Session() as session:
     
     print("\n====================\n")
     print("Training Start\n")
-    for episode in range(EPISODE_NUM):
+    while total_steps < 1000000:
+        episode+=1
         print("------------------")
         print("| Episode: {}".format(episode))
         # get previous observation
@@ -100,7 +103,7 @@ with tf.Session() as session:
         # setup variables
         ep_score, steps, exploit, explore = 0, 0, 0, 0
         
-        while not done: # until the episode ends
+        while not done or (steps > 10 and reward == 0.0): # until the episode ends
             steps += 1
             print("| Steps: {}".format(steps), end='\r')
          
@@ -121,47 +124,43 @@ with tf.Session() as session:
             if len(replay_memory) < BATCH_SIZE:
                 break
 
-            # prepare training batch
-            transitions = replay_memory.sample(BATCH_SIZE)
-            batch = Transition(*zip(*transitions))
-            next_state_batch = np.array(batch.next_state, dtype=np.float32)
-            cur_state_batch = np.array(batch.cur_state, dtype=np.float32)
-            action_batch = np.array(batch.action, dtype=np.int64)
-            cur_reward_batch = np.array(batch.cur_reward)
-            next_reward_batch = np.array(batch.next_reward)
+            # start learning after a certain number of steps    
+            if total_steps > start_learning:
+                # prepare training batch
+                transitions = replay_memory.sample(BATCH_SIZE)
+                batch = Transition(*zip(*transitions))
+                next_state_batch = np.array(batch.next_state, dtype=np.float32)
+                cur_state_batch = np.array(batch.cur_state, dtype=np.float32)
+                action_batch = np.array(batch.action, dtype=np.int64)
+                cur_reward_batch = np.array(batch.cur_reward)
+                next_reward_batch = np.array(batch.next_reward)
 
-            # state values
-            state_actions = session.run([policy_model.output], feed_dict={input: cur_state_batch})
+                # state values
+                state_actions = session.run([policy_model.output], feed_dict={input: cur_state_batch})
 
-            
-            # calculate best value at next state
-            next_state_actions = session.run([target_model.output], feed_dict={input:next_state_batch})
-            next_state_values = np.amax(next_state_actions[0], axis=1)
-            
-            # compute the expected Q values
 
-            # 2 step time difference
-            target_qvals = cur_reward_batch + (GAMMA * next_reward_batch) + ((GAMMA**2) * next_state_values)
-            
-            # 1 step time difference
-            # target_qvals = cur_reward_batch + (GAMMA * next_state_values)
-            # optimize
-            loss, _ = session.run([policy_model.loss, policy_model.train_op], feed_dict={input: cur_state_batch, policy_model.target_Q: target_qvals, policy_model.actions: state_actions[0]})
-           
+                # calculate best value at next state
+                next_state_actions = session.run([target_model.output], feed_dict={input:next_state_batch})
+                next_state_values = np.amax(next_state_actions[0], axis=1)
+
+                # compute the expected Q values
+
+                # 2 step time difference
+                target_qvals = cur_reward_batch + (GAMMA * next_reward_batch) + ((GAMMA**2) * next_state_values)
+
+                # 1 step time difference
+                # target_qvals = cur_reward_batch + (GAMMA * next_state_values)
+                # optimize
+                loss, _ = session.run([policy_model.loss, policy_model.train_op], feed_dict={input: cur_state_batch, policy_model.target_Q: target_qvals, policy_model.actions: state_actions[0]})
+
             # update variable values
             ep_score += next_reward
             step += 1
             exploit= count_exploit 
             explore = count_explore 
 
-        # Gradually updating when target model is saved 
-        if episode == 10:
-            TARGET_UPDATE_STEP_FREQ = 10
-        elif episode == 100:
-            TARGET_UPDATE_STEP_FREQ = 100
-        elif episode == 1000:
-            TARGET_UPDATE_STEP_FREQ = 1000
-        
+            
+            print("Loss: ".format(loss))
         #update the target network, copying all variables in DQN
         if episode % TARGET_UPDATE_STEP_FREQ == 0:
             # get trainable variables
