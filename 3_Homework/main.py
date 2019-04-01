@@ -13,15 +13,15 @@ parser.add_argument(
     type=str,
     default='/work/cse496dl/teams/Dropouts/3_Homework/test_agent/',
     help='directory where model graph and weights are saved')
-parser.add_argument('--batch_size', type=int, default=32, help='mini batch size for training')
-parser.add_argument('--ep_num', type=int, default=100, help='number of episodes to run')
+parser.add_argument('--batch_size', type=int, default=32, help='Mini batch size for training')
 parser.add_argument('--learning_rate', type=float, default=0.0001, help='Learning rate for optimizer')
-parser.add_argument('--target_update', type=float, default=10, help='Frequency of Target update step')
+parser.add_argument('--target_update', type=int, default=10, help='Frequency of Target update step')
 parser.add_argument('--eps_start', type=float, default = 1.)
 parser.add_argument('--eps_end', type=float, default = 0.01)
 parser.add_argument('--eps_decay', type=int, default=100000, help='Decay for the epsilon threshold')
-parser.add_argument('--max_steps_per_game', type=int, default=50000, help='max steps per episode')
-parser.add_argument('--start_learning', type=int, default=10000, help='learning starts after these many steps')
+parser.add_argument('--max_steps_per_game', type=int, default=50000, help='Max steps per episode')
+parser.add_argument('--start_learning', type=int, default=10000, help='Learning starts after these many steps')
+parser.add_argument('--steps_to_take', type=int, default=100000, help='Total number of steps that the agent takes while training')
 
 # setup parser arguments
 args = parser.parse_args()
@@ -46,6 +46,7 @@ EPS_END = args.eps_end
 EPS_DECAY = args.eps_decay
 EPISODE_NUM = args.ep_num
 REPLAY_BUFFER_SIZE = 10000
+STEPS_TO_TAKE = args.steps_to_take
 start_learning=args.start_learning
 max_steps_per_game = args.max_steps_per_game
 LEARNING_RATE = args.learning_rate
@@ -65,6 +66,10 @@ print("Epsilon Start: {}".format(EPS_START))
 print("Epsilon End: {}".format(EPS_END))
 print("Epsilon Decay: {}".format(EPS_DECAY))
 print("========================\n")
+print("Max steps per game: {}".format(max_steps_per_game))
+print("Learning starts (after steps): {}".format(start_learning))
+print("Total training steps: {}".format(STEPS_TO_TAKE))
+print("========================\n")
 
 with tf.Session() as session:
     # initialize variables
@@ -83,7 +88,7 @@ with tf.Session() as session:
         prepped_obs = np.expand_dims(np.array(cur_observation, dtype=np.float32), axis=0)
         # take greedy action
         action, count_explore, count_exploit = select_eps_greedy_action(session, input, policy_model, prepped_obs, total_steps, NUM_ACTIONS, EPS_START, EPS_END, EPS_DECAY, exploit, explore)
-        # 
+
         next_observation, next_reward, done, info = env.step(action)
         # add to memory
         print("Filling Replay Memory.", end='\r')
@@ -91,7 +96,8 @@ with tf.Session() as session:
     
     print("\n====================\n")
     print("Training Start\n")
-    while total_steps < 1000000:
+    while total_steps < STEPS_TO_TAKE:
+        
         episode+=1
         print("------------------")
         print("| Episode: {}".format(episode))
@@ -105,8 +111,7 @@ with tf.Session() as session:
         
         while not done: # until the episode ends
             steps += 1
-            print("| Steps: {}".format(steps), end='\r')
-         
+            # print("| Steps: {}".format(steps), end='\r')
             # select a greedy action and get observations
             prepped_obs = np.expand_dims(np.array(cur_observation, dtype=np.float32), axis=0)
             
@@ -166,29 +171,33 @@ with tf.Session() as session:
 
             
             
-        #update the target network, copying all variables in DQN
-        if total_steps % TARGET_UPDATE_STEP_FREQ == 0:
-            # get trainable variables
-            trainable_vars = tf.trainable_variables()
-            # length of trainable variables
-            total_vars = len(trainable_vars)
-            # list to hold all operators
-            ops = []
+            #update the target network, copying all variables in DQN
+            if total_steps % TARGET_UPDATE_STEP_FREQ == 0:
 
-            # iterate through policy model weights
-            policy_model_weights = trainable_vars[0:total_vars//2]
-            for idx, var in enumerate(policy_model_weights):
-                # get target model weights
-                target_model_weights = trainable_vars[idx + total_vars//2]
-                # assign policy model weights to target model weights
-                ops.append(target_model_weights.assign((var.value())))
+                print("------------Updating Target Model------------")
+                # get trainable variables
+                trainable_vars = tf.trainable_variables()
+                # length of trainable variables
+                total_vars = len(trainable_vars)
+                # list to hold all operators
+                ops = []
 
-            # run session to transfer weights
-            for op in ops:
-                session.run(op)
-            # save target model
-            target_model.saver.save(session, args.model_dir + "target/" + "homework_3")
-                
+                # iterate through policy model weights
+                policy_model_weights = trainable_vars[0:total_vars//2]
+                for idx, var in enumerate(policy_model_weights):
+                    # get target model weights
+                    target_model_weights = trainable_vars[idx + total_vars//2]
+                    # assign policy model weights to target model weights
+                    ops.append(target_model_weights.assign((var.value())))
+
+                # run session to transfer weights
+                for op in ops:
+                    session.run(op)
+                # save target model
+                target_model.saver.save(session, args.model_dir + "target/" + "homework_3")
+                if total_steps == (STEPS_TO_TAKE//2):
+                    target_model.saver.save(session, args.model_dir + "target_halfway/" + "homework_3")
+                                    
         print("| Steps: {}".format(steps))
         print("| Score: {}".format(ep_score))
         print("| Explore: {}".format(count_explore))
