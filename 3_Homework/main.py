@@ -3,7 +3,7 @@ import atari_wrappers
 import numpy as np
 import random
 import tensorflow as tf
-from util import select_eps_greedy_action, ReplayMemory, Transition
+from util import select_eps_greedy_action, ReplayMemory, PrioritizedReplayBuffer
 from model import AtariNet
 
 # setup parser
@@ -44,7 +44,6 @@ BATCH_SIZE = args.batch_size
 EPS_START = args.eps_start
 EPS_END = args.eps_end
 EPS_DECAY = args.eps_decay
-EPISODE_NUM = args.ep_num
 REPLAY_BUFFER_SIZE = 10000
 STEPS_TO_TAKE = args.steps_to_take
 start_learning=args.start_learning
@@ -56,10 +55,10 @@ GAMMA = 0.99
 policy_model = AtariNet(input, OBS_SHAPE, NUM_ACTIONS, LEARNING_RATE)
 target_model = AtariNet(input, OBS_SHAPE, NUM_ACTIONS, LEARNING_RATE)
 replay_memory = ReplayMemory(REPLAY_BUFFER_SIZE)
+prb_memory = PrioritizedReplayBuffer(REPLAY_BUFFER_SIZE, 0.6)
 
 
 print("Batch Size: {}".format(BATCH_SIZE))
-print("Episodes: {}".format(EPISODE_NUM))
 print("Target Update Freq: {}".format(TARGET_UPDATE_STEP_FREQ))
 print("========================\n")
 print("Epsilon Start: {}".format(EPS_START))
@@ -79,7 +78,7 @@ with tf.Session() as session:
     score_list = [] 
 
     # wait till atleast 64 observations are loaded into replay memory
-    while len(replay_memory) < BATCH_SIZE:
+    while len(prb_memory) < BATCH_SIZE:
         # get previous observeration
         prev_observation = env.reset()
         # get new observation based on random action
@@ -92,12 +91,11 @@ with tf.Session() as session:
         next_observation, next_reward, done, info = env.step(action)
         # add to memory
         print("Filling Replay Memory.", end='\r')
-        replay_memory.push(prev_observation, action, cur_observation, cur_reward, next_observation, next_reward)
+        prb_memory.push(prev_observation, action, cur_observation, cur_reward, next_observation, next_reward)
     
     print("\n====================\n")
     print("Training Start\n")
     while total_steps < STEPS_TO_TAKE:
-        
         episode+=1
         print("------------------")
         print("| Episode: {}".format(episode))
@@ -119,26 +117,21 @@ with tf.Session() as session:
             
             next_observation, next_reward, done, info = env.step(action)
             # add to memory
-            replay_memory.push(prev_observation, action, cur_observation, cur_reward, next_observation, next_reward)
+            prb_memory.push(prev_observation, action, cur_observation, cur_reward, next_observation, next_reward)
             
             # set previous observation to current observation
             prev_observation = cur_observation
             cur_observation = next_observation
 
             # before enough transitions are collected to form a batch
-            if len(replay_memory) < BATCH_SIZE:
+            if len(prb_memory) < BATCH_SIZE:
                 break
 
             # start learning after a certain number of steps    
             if total_steps > start_learning:
                 # prepare training batch
-                transitions = replay_memory.sample(BATCH_SIZE)
-                batch = Transition(*zip(*transitions))
-                next_state_batch = np.array(batch.next_state, dtype=np.float32)
-                cur_state_batch = np.array(batch.cur_state, dtype=np.float32)
-                action_batch = np.array(batch.action, dtype=np.int64)
-                cur_reward_batch = np.array(batch.cur_reward)
-                next_reward_batch = np.array(batch.next_reward)
+                _, action_batch, cur_state_batch, cur_reward_batch, next_state_batch, next_reward_batch, weights, batch_idxs = prb_memory.sample(BATCH_SIZE, 0.4)
+               
 
                 # state values
                 state_actions = session.run([policy_model.output], feed_dict={input: cur_state_batch})
@@ -156,7 +149,10 @@ with tf.Session() as session:
                 # 1 step time difference
                 # target_qvals = cur_reward_batch + (GAMMA * next_state_values)
                 # optimize
-                loss, _ = session.run([policy_model.loss, policy_model.train_op], feed_dict={input: cur_state_batch, policy_model.target_Q: target_qvals, policy_model.actions: state_actions[0]})
+                loss, _, q, target_q = session.run([policy_model.loss, policy_model.train_op, policy_model.Q, policy_model.target_Q], feed_dict={input: cur_state_batch, policy_model.target_Q: target_qvals, policy_model.actions: state_actions[0]})
+                td_error = q - target_q
+                new_priorities = np.abs(td_error) + (1e-6)
+                prb_memory.update_priorities(batch_idxs, new_priorities)
                 
             
             # update variable values
