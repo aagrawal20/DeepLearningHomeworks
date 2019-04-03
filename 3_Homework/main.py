@@ -35,7 +35,6 @@ OBS_SHAPE = env.observation_space.shape
 
 # setup placeholders
 input = tf.placeholder(tf.float32, [None, 84, 84, 4], name='input_placeholder')
-expected_vals = tf.placeholder(tf.float32, [None, 84, 84, 4] )
 
 
 # setup hyperparameters
@@ -51,7 +50,7 @@ max_steps_per_game = args.max_steps_per_game
 LEARNING_RATE = args.learning_rate
 GAMMA = 0.99
 
-# setup policy and target model, replay memory, and optimizer
+# setup policy and target model, replay memory
 policy_model = AtariNet(input, OBS_SHAPE, NUM_ACTIONS, LEARNING_RATE)
 target_model = AtariNet(input, OBS_SHAPE, NUM_ACTIONS, LEARNING_RATE)
 replay_memory = ReplayMemory(REPLAY_BUFFER_SIZE)
@@ -75,19 +74,20 @@ with tf.Session() as session:
     session.run(tf.global_variables_initializer())
     # setup variable counters
     total_steps, exploit, explore, episode = 0, 0, 0, 0
+    # list to store scores
     score_list = [] 
 
     # wait till atleast 64 observations are loaded into replay memory
     while len(prb_memory) < BATCH_SIZE:
-        # get previous observeration
+        # get s using environment
         prev_observation = env.reset()
-        # get new observation based on random action
+        # get s' r' using random action
         cur_observation, cur_reward, done, _ = env.step(random.randrange(NUM_ACTIONS))
         # stack observations
         prepped_obs = np.expand_dims(np.array(cur_observation, dtype=np.float32), axis=0)
         # take greedy action
         action, count_explore, count_exploit = select_eps_greedy_action(session, input, policy_model, prepped_obs, total_steps, NUM_ACTIONS, EPS_START, EPS_END, EPS_DECAY, exploit, explore)
-
+        # get s" r" using greedy action
         next_observation, next_reward, done, info = env.step(action)
         # add to memory
         print("Filling Replay Memory.", end='\r')
@@ -103,27 +103,28 @@ with tf.Session() as session:
         prev_observation = env.reset()
         # take random action and get observations
         cur_observation, cur_reward, done, _ = env.step(random.randrange(NUM_ACTIONS))
+        # set game end flag
         done = False
         # setup variables
         ep_score, steps, exploit, explore = 0, 0, 0, 0
         
         while not done: # until the episode ends
+            # increment step counter
             steps += 1
-            # print("| Steps: {}".format(steps), end='\r')
             # select a greedy action and get observations
             prepped_obs = np.expand_dims(np.array(cur_observation, dtype=np.float32), axis=0)
-            
+            # get greedy action
             action, count_explore, count_exploit = select_eps_greedy_action(session, input, policy_model, prepped_obs, total_steps, NUM_ACTIONS, EPS_START, EPS_END, EPS_DECAY, exploit, explore)
-            
+            # get observation and reward based on greedy action
             next_observation, next_reward, done, info = env.step(action)
             # add to memory
             prb_memory.push(prev_observation, action, cur_observation, cur_reward, next_observation, next_reward)
-            
             # set previous observation to current observation
             prev_observation = cur_observation
+            # set current observation to next observation
             cur_observation = next_observation
 
-            # before enough transitions are collected to form a batch
+            # check if enough transitions are collected to form a batch
             if len(prb_memory) < BATCH_SIZE:
                 break
 
@@ -131,27 +132,20 @@ with tf.Session() as session:
             if total_steps > start_learning:
                 # prepare training batch
                 _, action_batch, cur_state_batch, cur_reward_batch, next_state_batch, next_reward_batch, weights, batch_idxs = prb_memory.sample(BATCH_SIZE, 0.4)
-               
-
                 # state values
                 state_actions = session.run([policy_model.output], feed_dict={input: cur_state_batch})
-
-
                 # calculate best value at next state
                 next_state_actions = session.run([target_model.output], feed_dict={input:next_state_batch})
                 next_state_values = np.amax(next_state_actions[0], axis=1)
-
-                # compute the expected Q values
-
-                # 2 step time difference
+                # compute the expected Q values with 2 step time difference
                 target_qvals = cur_reward_batch + (GAMMA * next_reward_batch) + ((GAMMA**2) * next_state_values)
-
-                # 1 step time difference
-                # target_qvals = cur_reward_batch + (GAMMA * next_state_values)
                 # optimize
                 loss, _, q, target_q = session.run([policy_model.loss, policy_model.train_op, policy_model.Q, policy_model.target_Q], feed_dict={input: cur_state_batch, policy_model.target_Q: target_qvals, policy_model.actions: state_actions[0]})
+                # compute td error
                 td_error = q - target_q
+                # get new priorities
                 new_priorities = np.abs(td_error) + (1e-6)
+                # update priorities for replay buffer
                 prb_memory.update_priorities(batch_idxs, new_priorities)
                 
             
@@ -191,6 +185,7 @@ with tf.Session() as session:
                     session.run(op)
                 # save target model
                 target_model.saver.save(session, args.model_dir + "target/" + "homework_3")
+                # save the model halfway
                 if total_steps == (STEPS_TO_TAKE//2):
                     target_model.saver.save(session, args.model_dir + "target_halfway/" + "homework_3")
                                     
@@ -207,4 +202,5 @@ with tf.Session() as session:
     print("Loss: ".format(loss))
     print("Top score for all episodes: {}".format(max(score_list)))
     print("Total steps taken: {}".format(total_steps))
+    # save policy model
     policy_model.saver.save(session, args.model_dir + "policy/" + "homework_3")
