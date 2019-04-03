@@ -1,15 +1,13 @@
 import random
 import math
 import operator
-import numpy as np
-import tensorflow as tf
 import collections
-import sys
+import numpy as np
 
-Transition = collections.namedtuple('Transition', ('old_state', 'action', 'cur_state', 'cur_reward', 'next_state', 'next_reward'))
+Transition = collections.namedtuple('Transition',
+                                    ('old_state', 'action', 'cur_state', 'cur_reward', 'next_state', 'next_reward'))
 
-
-class ReplayMemory(object):
+class ReplayMemory():
 
     def __init__(self, capacity):
         self.capacity = capacity
@@ -22,22 +20,21 @@ class ReplayMemory(object):
             self.memory.append(None)
         self.memory[self.position] = args
         self.position = (self.position + 1) % self.capacity
-        
+
     def encode_sample(self, idxes):
         old_state, actions, cur_state, cur_reward, next_state, next_reward = [], [], [], [], [], []
         for i in idxes:
             data = self.memory[i]
             _, old_s, action, cur_s, cur_r, next_s, next_r = data
-            
+
             old_state.append(np.array(old_s, copy=False))
             actions.append(np.array(action, copy=False))
             cur_state.append(np.array(cur_s, copy=False))
             cur_reward.append(cur_r)
             next_state.append(np.array(next_s, copy=False))
             next_reward.append(next_r)
-            
+
         return np.array(old_state), np.array(actions), np.array(cur_state), np.array(cur_reward), np.array(next_state), np.array(next_reward)
-        
 
     def sample(self, batch_size):
         idexs = [random.randint(0, len(self.memory)-1) for _ in range(batch_size)]
@@ -45,29 +42,28 @@ class ReplayMemory(object):
 
     def __len__(self):
         return len(self.memory)
-    
+
 class PrioritizedReplayBuffer(ReplayMemory):
     """ Inherits from baselines Prioritized Replay Buffer class"""
-    
+
     def __init__(self, size, alpha):
-        
+
         super(PrioritizedReplayBuffer, self).__init__(size)
-        
+
         assert alpha >= 0
         self.alpha = alpha
-
         init_capacity = 1
-        
+
         while init_capacity < size:
             init_capacity *= 2
 
         self.init_sum = SumSegmentTree(init_capacity)
         self.init_min = MinSegmentTree(init_capacity)
-        
+
         self.max_priority = 1.0
-        
+
     def push(self, *args):
-        
+
         idx = self.position
         super().push(self, *args)
         self.init_sum[idx] = self.max_priority ** self.alpha
@@ -109,10 +105,8 @@ class PrioritizedReplayBuffer(ReplayMemory):
             self.init_min[idx] = priority ** self.alpha
 
             self.max_priority = max(self.max_priority, priority)
-    
-    
 
-def select_eps_greedy_action(session, input, policy_model, obs, step, num_actions, EPS_START, EPS_END, EPS_DECAY, exploit, explore):
+def select_eps_greedy_action(session, input_val, policy_model, obs, step, num_actions, eps_start, eps_end, eps_decay, exploit, explore):
     """
     Decides whether the agent should exploit or explore
 
@@ -120,27 +114,30 @@ def select_eps_greedy_action(session, input, policy_model, obs, step, num_action
     :param obs: (np.array): current state observation
     :param step: (int): training step count
     :param num_actions: (int): number of actions available to the agent
-    :param EPS_START:
-    :param EPS_END:
-    :param EPS_DECAY:
+    :param eps_start:
+    :param eps_end:
+    :param eps_decay:
     :return: action
     """
 
-    eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * step / EPS_DECAY)
+    eps_threshold = eps_end + (eps_start - eps_end) * math.exp(-1. * step / eps_decay)
     # exploit
     if random.random() > eps_threshold:
         exploit += 1
-        output = session.run([policy_model.output], feed_dict={input:obs})
+        output = session.run([policy_model.output], feed_dict={input_val:obs})
         action = np.argmax(output[0])
     # explore
     else:
         explore += 1
         action = random.randrange(num_actions)
-      
 
     return action, explore, exploit
 
-class SegmentTree(object):
+class SegmentTree():
+    """Inherits from OpenAI Baselines
+    Defines methods to create a tree structure to efficiently
+    sample the observations
+    """
     def __init__(self, capacity, operation, neutral_element):
         """Build a Segment Tree data structure.
         https://en.wikipedia.org/wiki/Segment_tree
@@ -174,14 +171,13 @@ class SegmentTree(object):
         mid = (node_start + node_end) // 2
         if end <= mid:
             return self._reduce_helper(start, end, 2 * node, node_start, mid)
-        else:
-            if mid + 1 <= start:
-                return self._reduce_helper(start, end, 2 * node + 1, mid + 1, node_end)
-            else:
-                return self._operation(
-                    self._reduce_helper(start, mid, 2 * node, node_start, mid),
-                    self._reduce_helper(mid + 1, end, 2 * node + 1, mid + 1, node_end)
-                )
+
+        if mid + 1 <= start:
+            return self._reduce_helper(start, end, 2 * node + 1, mid + 1, node_end)
+
+        return self._operation(
+            self._reduce_helper(start, mid, 2 * node, node_start, mid),
+            self._reduce_helper(mid + 1, end, 2 * node + 1, mid + 1, node_end))
 
     def reduce(self, start=0, end=None):
         """Returns result of applying `self.operation`
@@ -213,22 +209,23 @@ class SegmentTree(object):
         while idx >= 1:
             self._value[idx] = self._operation(
                 self._value[2 * idx],
-                self._value[2 * idx + 1]
-            )
+                self._value[2 * idx + 1])
             idx //= 2
 
     def __getitem__(self, idx):
         assert 0 <= idx < self._capacity
         return self._value[self._capacity + idx]
 
-
 class SumSegmentTree(SegmentTree):
+    """Inherits from OpenAI Baselines 
+    Defines methods used to find segment tree sum 
+    and sample indexes
+    """
     def __init__(self, capacity):
         super(SumSegmentTree, self).__init__(
             capacity=capacity,
             operation=operator.add,
-            neutral_element=0.0
-        )
+            neutral_element=0.0)
 
     def sum(self, start=0, end=None):
         """Returns arr[start] + ... + arr[end]"""
@@ -259,16 +256,17 @@ class SumSegmentTree(SegmentTree):
                 idx = 2 * idx + 1
         return idx - self._capacity
 
-
 class MinSegmentTree(SegmentTree):
+    """Inherits from OpenAI Baselines 
+    Defines methods used to find the min
+    in the segment tree
+    """
     def __init__(self, capacity):
         super(MinSegmentTree, self).__init__(
             capacity=capacity,
             operation=min,
-            neutral_element=float('inf')
-        )
+            neutral_element=float('inf'))
 
     def min(self, start=0, end=None):
         """Returns min(arr[start], ...,  arr[end])"""
-
         return super(MinSegmentTree, self).reduce(start, end)
