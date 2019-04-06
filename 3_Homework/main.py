@@ -27,7 +27,7 @@ parser.add_argument('--steps_to_take', type=int, default=100000, help='Total num
 args = parser.parse_args()
 
 # load environment
-env = atari_wrappers.wrap_deepmind(atari_wrappers.make_atari('SeaquestNoFrameskip-v4'),clip_rewards=False, frame_stack=True)
+env = atari_wrappers.wrap_deepmind(atari_wrappers.make_atari('SeaquestNoFrameskip-v4'),clip_rewards=True, frame_stack=True)
 # get shape of actions
 NUM_ACTIONS = env.action_space.n
 # get shape of observations
@@ -83,12 +83,16 @@ with tf.Session() as session:
         prev_observation = env.reset()
         # get new observation based on random action
         cur_observation, cur_reward, done, _ = env.step(random.randrange(NUM_ACTIONS))
+        if done == True:
+            cur_reward -= 1.0
         # stack observations
         prepped_obs = np.expand_dims(np.array(cur_observation, dtype=np.float32), axis=0)
         # take greedy action
         action, count_explore, count_exploit = select_eps_greedy_action(session, input, policy_model, prepped_obs, total_steps, NUM_ACTIONS, EPS_START, EPS_END, EPS_DECAY, exploit, explore)
 
         next_observation, next_reward, done, info = env.step(action)
+        if done == True:
+            next_reward -= 1.0
         # add to memory
         print("Filling Replay Memory.", end='\r')
         prb_memory.push(prev_observation, action, cur_observation, cur_reward, next_observation, next_reward)
@@ -103,6 +107,8 @@ with tf.Session() as session:
         prev_observation = env.reset()
         # take random action and get observations
         cur_observation, cur_reward, done, _ = env.step(random.randrange(NUM_ACTIONS))
+        if done = True:
+            cur_reward -= 1.0
         done = False
         # setup variables
         ep_score, steps, exploit, explore = 0, 0, 0, 0
@@ -116,6 +122,8 @@ with tf.Session() as session:
             action, count_explore, count_exploit = select_eps_greedy_action(session, input, policy_model, prepped_obs, total_steps, NUM_ACTIONS, EPS_START, EPS_END, EPS_DECAY, exploit, explore)
             
             next_observation, next_reward, done, info = env.step(action)
+            if done == True:
+                next_reward -= 1.0
             # add to memory
             prb_memory.push(prev_observation, action, cur_observation, cur_reward, next_observation, next_reward)
             
