@@ -107,7 +107,7 @@ with tf.Session() as session:
         prev_observation = env.reset()
         # take random action and get observations
         cur_observation, cur_reward, done, _ = env.step(random.randrange(NUM_ACTIONS))
-        if done = True:
+        if done == True:
             cur_reward -= 1.0
         done = False
         # setup variables
